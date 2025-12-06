@@ -3,16 +3,16 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>iWeather: Pro Audio</title>
+    <title>iWeather: Interactive</title>
     
     <script src='https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.js'></script>
     <link href='https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.css' rel='stylesheet' />
     <script src="https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-geocoder/v5.0.0/mapbox-gl-geocoder.min.js"></script>
     <link rel="stylesheet" href="https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-geocoder/v5.0.0/mapbox-gl-geocoder.css" type="text/css">
+    
     <script src="https://cdn.tailwindcss.com"></script>
 
     <style>
-        /* Mapbox Tweaks */
         .mapboxgl-ctrl-geocoder {
             box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.1) !important;
             background-color: rgba(255, 255, 255, 0.95) !important;
@@ -23,33 +23,26 @@
         .mapboxgl-ctrl-geocoder--input { height: 50px !important; padding-left: 45px !important; font-size: 16px !important; color: #334155 !important; }
         .mapboxgl-ctrl-geocoder--icon-search { top: 12px !important; left: 12px !important; }
         
-        /* Utils */
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
         .fade-in { animation: fadeIn 0.4s cubic-bezier(0.16, 1, 0.3, 1); }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 
-        /* Accordion */
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.92);
+            backdrop-filter: blur(24px);
+            border: 1px solid rgba(255, 255, 255, 0.6);
+        }
+
         .accordion-content { transition: max-height 0.3s ease, opacity 0.3s ease; max-height: 0; opacity: 0; overflow: hidden; }
         .accordion-item.active .accordion-content { max-height: 120px; opacity: 1; }
         .accordion-arrow { transition: transform 0.3s ease; }
         .accordion-item.active .accordion-arrow { transform: rotate(180deg); }
 
-        /* Glass */
-        .glass-panel {
-            background: rgba(255, 255, 255, 0.9);
-            backdrop-filter: blur(24px);
-            border: 1px solid rgba(255, 255, 255, 0.6);
-        }
-
-        /* Music Pulse Animation */
-        .music-pulse { animation: musicPulse 2s infinite; }
-        .music-paused { animation-play-state: paused; opacity: 0.5; transform: scale(0.95); }
-        @keyframes musicPulse {
-            0% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.4); transform: scale(1); }
-            70% { box-shadow: 0 0 0 20px rgba(59, 130, 246, 0); transform: scale(1.05); }
-            100% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0); transform: scale(1); }
-        }
+        /* Radio Visualizer */
+        .bar { width: 4px; background: #3b82f6; border-radius: 2px; height: 4px; }
+        .radio-playing .bar { animation: sound 0ms -800ms linear infinite alternate; }
+        @keyframes sound { 0% { height: 4px; opacity: .5; } 100% { height: 24px; opacity: 1; } }
     </style>
 </head>
 <body class="h-screen w-screen overflow-hidden bg-slate-100 text-slate-800 font-sans">
@@ -80,7 +73,7 @@
         <div class="px-6 py-4">
             <div class="flex bg-slate-200/60 p-1 rounded-2xl">
                 <button onclick="setTab('weather')" class="tab-btn flex-1 py-2.5 rounded-xl text-xs font-bold text-slate-600 transition-all shadow-sm bg-white" id="btn-weather">Погода</button>
-                <button onclick="setTab('explore')" class="tab-btn flex-1 py-2.5 rounded-xl text-xs font-bold text-slate-400 hover:text-slate-600 transition-all" id="btn-explore">Інфо</button>
+                <button onclick="setTab('explore')" class="tab-btn flex-1 py-2.5 rounded-xl text-xs font-bold text-slate-400 hover:text-slate-600 transition-all" id="btn-explore">Мандрівник</button>
                 <button onclick="setTab('radio')" class="tab-btn flex-1 py-2.5 rounded-xl text-xs font-bold text-slate-400 hover:text-slate-600 transition-all" id="btn-radio">Радіо</button>
             </div>
         </div>
@@ -91,10 +84,10 @@
                 <div>
                     <h3 class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 pl-1">Комфорт</h3>
                     <div class="grid grid-cols-2 gap-3">
-                        <div id="card-clothes" class="bg-white/60 p-4 rounded-3xl border border-white/60 shadow-sm flex flex-col justify-between h-28"><span class="text-2xl">👕</span><div><div class="text-[10px] font-bold text-slate-400 uppercase">Одяг</div><div class="text-xs font-bold text-slate-800 mt-0.5" id="txt-clothes">--</div></div></div>
-                        <div id="card-aqi" class="bg-white/60 p-4 rounded-3xl border border-white/60 shadow-sm flex flex-col justify-between h-28"><span class="text-2xl">😷</span><div><div class="text-[10px] font-bold text-slate-400 uppercase">Повітря (AQI)</div><div class="text-xs font-bold text-slate-800 mt-0.5" id="txt-aqi">--</div></div></div>
-                        <div id="card-poodle" class="bg-white/60 p-4 rounded-3xl border border-white/60 shadow-sm flex flex-col justify-between h-28"><span class="text-2xl">🐩</span><div><div class="text-[10px] font-bold text-slate-400 uppercase">Зачіска</div><div class="text-xs font-bold text-slate-800 mt-0.5" id="txt-poodle">--</div></div></div>
-                        <div id="card-migraine" class="bg-white/60 p-4 rounded-3xl border border-white/60 shadow-sm flex flex-col justify-between h-28"><div class="flex justify-between"><span class="text-2xl">🧠</span><div class="h-2 w-2 rounded-full bg-slate-300" id="dot-migraine"></div></div><div><div class="text-[10px] font-bold text-slate-400 uppercase">Мігрень</div><div class="text-xs font-bold text-slate-800 mt-0.5" id="txt-migraine">--</div></div></div>
+                        <div class="bg-white/60 p-4 rounded-3xl border border-white/60 shadow-sm flex flex-col justify-between h-28"><span class="text-2xl">👕</span><div><div class="text-[10px] font-bold text-slate-400 uppercase">Одяг</div><div class="text-xs font-bold text-slate-800 leading-tight mt-0.5" id="txt-clothes">--</div></div></div>
+                        <div id="card-aqi" class="bg-white/60 p-4 rounded-3xl border border-white/60 shadow-sm flex flex-col justify-between h-28"><span class="text-2xl">😷</span><div><div class="text-[10px] font-bold text-slate-400 uppercase">Повітря</div><div class="text-xs font-bold text-slate-800 leading-tight mt-0.5" id="txt-aqi">--</div></div></div>
+                        <div id="card-poodle" class="bg-white/60 p-4 rounded-3xl border border-white/60 shadow-sm flex flex-col justify-between h-28"><span class="text-2xl">🐩</span><div><div class="text-[10px] font-bold text-slate-400 uppercase">Зачіска</div><div class="text-xs font-bold text-slate-800 leading-tight mt-0.5" id="txt-poodle">--</div></div></div>
+                        <div id="card-migraine" class="bg-white/60 p-4 rounded-3xl border border-white/60 shadow-sm flex flex-col justify-between h-28"><div class="flex justify-between"><span class="text-2xl">🧠</span><div class="h-2.5 w-2.5 rounded-full bg-slate-300" id="dot-migraine"></div></div><div><div class="text-[10px] font-bold text-slate-400 uppercase">Мігрень</div><div class="text-xs font-bold text-slate-800 leading-tight mt-0.5" id="txt-migraine">--</div></div></div>
                     </div>
                 </div>
                 <div>
@@ -106,62 +99,63 @@
                 </div>
             </div>
 
-            <div id="tab-explore" class="tab-content hidden space-y-5 fade-in">
-                <div class="relative w-full h-44 rounded-[2rem] overflow-hidden shadow-lg group"><img id="img-flag" class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" src=""><div class="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent flex items-end p-6"><h2 class="text-white text-3xl font-bold tracking-tight" id="txt-country">--</h2></div></div>
+            <div id="tab-explore" class="tab-content hidden space-y-6 fade-in">
+                
+                <div class="relative w-full h-40 rounded-[2rem] overflow-hidden shadow-lg group">
+                    <img id="img-flag" class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" src="">
+                    <div class="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent flex flex-col justify-end p-6">
+                        <h2 class="text-white text-2xl font-bold tracking-tight leading-none" id="txt-country">--</h2>
+                    </div>
+                </div>
+
                 <div class="bg-white/60 rounded-3xl overflow-hidden border border-white/60 shadow-sm divide-y divide-slate-100/50">
                     <div class="flex justify-between items-center p-4"><span class="text-xs font-bold text-slate-500">Столиця</span><span class="text-sm font-bold text-slate-800" id="txt-capital">--</span></div>
                     <div class="flex justify-between items-center p-4"><span class="text-xs font-bold text-slate-500">Населення</span><span class="text-sm font-bold text-slate-800" id="txt-pop">--</span></div>
-                    <div class="flex justify-between items-center p-4"><span class="text-xs font-bold text-slate-500">Валюта</span><span class="text-sm font-bold text-slate-800" id="txt-currency">--</span></div>
                     <div class="flex justify-between items-center p-4"><span class="text-xs font-bold text-slate-500">Рух авто</span><span class="text-sm font-bold text-slate-800" id="txt-drive">--</span></div>
                     <div class="flex justify-between items-center p-4 bg-blue-50/50"><div class="flex flex-col"><span class="text-[10px] font-bold text-blue-400 uppercase">Свято</span><span class="text-sm font-bold text-blue-900 truncate max-w-[150px]" id="txt-holiday">--</span></div><span class="text-xs font-semibold text-blue-600 bg-white px-2 py-1 rounded-md shadow-sm" id="txt-holiday-date">--</span></div>
                 </div>
+
+                <div>
+                    <h3 class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 pl-1">🍻 Бари поруч</h3>
+                    <div id="breweries-container" class="space-y-2">
+                        <span class="text-xs text-slate-400 pl-1">Завантаження...</span>
+                    </div>
+                </div>
+
+                <div>
+                    <h3 class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 pl-1">🏛️ Що подивитись</h3>
+                    <div id="wiki-container" class="space-y-2">
+                        <span class="text-xs text-slate-400 pl-1">Завантаження...</span>
+                    </div>
+                </div>
             </div>
 
-            <div id="tab-radio" class="tab-content hidden h-full flex flex-col items-center pt-8 fade-in">
-                
-                <div id="radio-cover" class="w-56 h-56 rounded-[3rem] bg-gradient-to-br from-slate-800 to-black shadow-2xl flex items-center justify-center mb-8 relative music-pulse music-paused transition-all duration-500">
-                    <svg class="w-20 h-20 text-blue-500 drop-shadow-lg" fill="currentColor" viewBox="0 0 24 24">
-                        <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/>
-                    </svg>
+            <div id="tab-radio" class="tab-content hidden h-full flex flex-col items-center pt-6 fade-in">
+                <div id="radio-cover" class="w-52 h-52 rounded-[3rem] bg-gradient-to-br from-slate-800 to-black shadow-2xl flex items-center justify-center mb-8 relative border-4 border-white/20">
+                    <svg class="w-20 h-20 text-blue-500 drop-shadow-lg" fill="currentColor" viewBox="0 0 24 24"><path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/></svg>
                     <div class="absolute bottom-4 bg-white/10 backdrop-blur-md border border-white/10 px-3 py-1 rounded-full flex items-center gap-2">
                         <span id="radio-led" class="w-2 h-2 rounded-full bg-slate-500"></span>
                         <span id="radio-status" class="text-[10px] font-bold text-white uppercase tracking-wider">OFFLINE</span>
                     </div>
                 </div>
-
-                <div class="mb-10 w-full px-4 text-center">
-                    <h2 class="text-2xl font-black text-slate-800 mb-2 truncate leading-tight" id="radio-title">Оберіть країну</h2>
-                    <p class="text-xs font-semibold text-slate-400">Live Radio Stream</p>
+                <div class="mb-8 w-full px-4 text-center">
+                    <h2 class="text-xl font-black text-slate-800 mb-1 truncate leading-tight" id="radio-title">Оберіть країну</h2>
+                    <div class="flex items-end justify-center gap-1.5 h-4" id="visualizer"><div class="bar"></div><div class="bar"></div><div class="bar"></div></div>
                 </div>
-
                 <div class="flex items-center gap-6 bg-white p-4 rounded-[2.5rem] shadow-xl shadow-slate-200/50 border border-slate-100">
-                    
-                    <button id="btn-prev" class="w-14 h-14 bg-slate-100 text-slate-600 rounded-full flex items-center justify-center hover:bg-slate-200 active:scale-95 transition-all">
-                        <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg>
-                    </button>
-
-                    <button id="btn-play" class="w-20 h-20 bg-blue-600 text-white rounded-full flex items-center justify-center shadow-lg shadow-blue-500/40 hover:bg-blue-700 active:scale-95 transition-all">
-                        <svg id="icon-play" class="w-8 h-8 ml-1" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
-                        <svg id="icon-pause" class="w-8 h-8 hidden" fill="currentColor" viewBox="0 0 24 24"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
-                    </button>
-
-                    <button id="btn-next" class="w-14 h-14 bg-slate-100 text-slate-600 rounded-full flex items-center justify-center hover:bg-slate-200 active:scale-95 transition-all">
-                        <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg>
-                    </button>
+                    <button id="btn-prev" class="w-14 h-14 bg-slate-100 text-slate-600 rounded-full flex items-center justify-center hover:bg-slate-200 active:scale-95 transition-all"><svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg></button>
+                    <button id="btn-play" class="w-20 h-20 bg-blue-600 text-white rounded-full flex items-center justify-center text-2xl shadow-lg shadow-blue-500/40 hover:bg-blue-700 active:scale-95 transition-all group"><svg id="icon-play" class="w-8 h-8 ml-1" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg><svg id="icon-pause" class="w-8 h-8 hidden" fill="currentColor" viewBox="0 0 24 24"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg></button>
+                    <button id="btn-next" class="w-14 h-14 bg-slate-100 text-slate-600 rounded-full flex items-center justify-center hover:bg-slate-200 active:scale-95 transition-all"><svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg></button>
                 </div>
-                
                 <audio id="audio-player"></audio>
             </div>
 
         </div>
     </div>
 
-    <button id="toggle-3d" class="absolute bottom-28 right-4 md:bottom-8 md:right-8 z-30 w-12 h-12 bg-white rounded-2xl shadow-xl border border-white/50 text-xl flex items-center justify-center active:scale-90 transition-all text-slate-600 hover:text-blue-600">
-        🏢
-    </button>
+    <button id="toggle-3d" class="absolute bottom-28 right-4 md:bottom-8 md:right-8 z-30 w-12 h-12 bg-white rounded-2xl shadow-xl border border-white/50 text-xl flex items-center justify-center active:scale-90 transition-all text-slate-600 hover:text-blue-600">🏢</button>
 
 <script>
-    // --- CONFIG ---
     mapboxgl.accessToken = 'pk.eyJ1IjoiaGVpc3NlbiIsImEiOiJjbWl0eGIyMHAwYWNrM2RzOGVnOGVyZnFmIn0.Px59SHwajQl0jgVAxzEmsA';
 
     const map = new mapboxgl.Map({
@@ -177,7 +171,11 @@
 
     const geocoder = new MapboxGeocoder({ accessToken: mapboxgl.accessToken, mapboxgl: mapboxgl, marker: false, placeholder: 'Знайти місто...', language: 'uk' });
     document.getElementById('geocoder').appendChild(geocoder.onAdd(map));
-    let marker = new mapboxgl.Marker({ color: '#2563eb' });
+    
+    // Primary Marker
+    let mainMarker = new mapboxgl.Marker({ color: '#2563eb' });
+    // Temporary Marker for POIs
+    let tempMarker = null;
 
     const btn3D = document.getElementById('toggle-3d');
     function add3DLayer() {
@@ -200,27 +198,34 @@
     window.setTab = (tabName) => {
         document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
         document.getElementById(`tab-${tabName}`).classList.remove('hidden');
-        document.querySelectorAll('.tab-btn').forEach(btn => {
-            btn.classList.remove('bg-white', 'text-slate-600', 'shadow-sm');
-            btn.classList.add('text-slate-400');
-        });
+        document.querySelectorAll('.tab-btn').forEach(btn => { btn.classList.remove('bg-white', 'text-slate-600', 'shadow-sm'); btn.classList.add('text-slate-400'); });
         document.getElementById(`btn-${tabName}`).classList.add('bg-white', 'text-slate-600', 'shadow-sm');
         document.getElementById(`btn-${tabName}`).classList.remove('text-slate-400');
     };
 
-    function openPanel() {
-        const panel = document.getElementById('panel');
-        panel.classList.remove('translate-y-full', 'md:-translate-x-[120%]');
-        panel.classList.add('translate-y-0', 'md:translate-x-0');
-    }
     function togglePanel() {
         const panel = document.getElementById('panel');
-        if(panel.classList.contains('translate-y-0')) {
-            panel.classList.remove('translate-y-0'); panel.classList.add('translate-y-full');
-        } else {
-            panel.classList.remove('translate-y-full'); panel.classList.add('translate-y-0');
-        }
+        if(panel.classList.contains('translate-y-0')) { panel.classList.remove('translate-y-0'); panel.classList.add('translate-y-full'); } 
+        else { panel.classList.remove('translate-y-full'); panel.classList.add('translate-y-0'); }
     }
+    function openPanel() { const panel = document.getElementById('panel'); panel.classList.remove('translate-y-full', 'md:-translate-x-[120%]'); panel.classList.add('translate-y-0', 'md:translate-x-0'); }
+
+    // --- INTERACTIVE MAP LOGIC ---
+    // Function to fly to a specific place (Wiki/Bar) and show it
+    window.showOnMap = function(lat, lng) {
+        // Remove old temp marker if exists
+        if(tempMarker) tempMarker.remove();
+        
+        // Add new distinct marker (Orange)
+        tempMarker = new mapboxgl.Marker({ color: '#f97316' })
+            .setLngLat([lng, lat])
+            .addTo(map);
+            
+        map.flyTo({ center: [lng, lat], zoom: 15, speed: 1.5, pitch: 45 });
+        
+        // On mobile, maybe minimize panel slightly or ensure map is visible?
+        // Current behavior: Map centers, so it should be visible above the panel.
+    };
 
     map.on('click', (e) => reverseGeocode(e.lngLat.lat, e.lngLat.lng));
     geocoder.on('result', (e) => {
@@ -229,6 +234,9 @@
     });
 
     async function reverseGeocode(lat, lng) {
+        // Remove temp marker on map click to clean up
+        if(tempMarker) { tempMarker.remove(); tempMarker = null; }
+
         const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${lng},${lat}.json?types=place,country&language=uk&access_token=${mapboxgl.accessToken}`;
         try {
             const res = await fetch(url);
@@ -245,7 +253,7 @@
     }
 
     async function loadData(lat, lng, city, code) {
-        marker.setLngLat([lng, lat]).addTo(map);
+        mainMarker.setLngLat([lng, lat]).addTo(map);
         map.flyTo({ center: [lng, lat], zoom: 12 });
         openPanel();
 
@@ -266,37 +274,37 @@
             loadCountryInfo(code);
             setupRadio(code);
         } else {
-             document.getElementById('radio-title').innerText = "Немає радіо (Океан?)";
-             document.getElementById('txt-country').innerText = "Невідома територія";
+             document.getElementById('radio-title').innerText = "Немає радіо";
+             document.getElementById('txt-country').innerText = "Невідомо";
              document.getElementById('img-flag').src = "";
         }
+        
+        loadNearbyWiki(lat, lng);
+        loadBreweries(lat, lng);
     }
 
     function renderWeather(wData, aData) {
         const c = wData.current;
         const d = wData.daily;
+        const wInfo = getWInfo(c.weathercode);
         
         document.getElementById('ui-temp').innerText = Math.round(c.temperature_2m) + '°';
-        document.getElementById('ui-desc').innerText = getWInfo(c.weathercode).text;
+        document.getElementById('ui-desc').innerText = wInfo.text;
         document.getElementById('ui-time').innerText = new Date().toLocaleTimeString('uk-UA', {timeZone: wData.timezone, hour:'2-digit', minute:'2-digit'});
 
-        // AQI
         const aqi = aData.current ? aData.current.european_aqi : 0;
         const aqiBox = document.getElementById('card-aqi');
-        let aqiStatus = "Чисте";
-        let aqiClass = "bg-green-50 border-green-100";
-        if(aqi > 20) { aqiStatus = "Помірне"; aqiClass = "bg-yellow-50 border-yellow-100"; }
-        if(aqi > 50) { aqiStatus = "Брудне"; aqiClass = "bg-red-50 border-red-100"; }
+        const aqiTxt = document.getElementById('txt-aqi');
         
-        aqiBox.className = `p-4 rounded-3xl border shadow-sm flex flex-col justify-between h-28 transition-transform hover:scale-[1.02] ${aqiClass}`;
-        document.getElementById('txt-aqi').innerText = `${aqiStatus} (${aqi})`;
+        if(aqi < 20) { aqiBox.className = "bg-green-50 p-4 rounded-3xl border border-green-100 shadow-sm flex flex-col justify-between h-28 transition-transform hover:scale-[1.02]"; aqiTxt.innerText = `Чисте (${aqi})`; }
+        else if(aqi < 50) { aqiBox.className = "bg-yellow-50 p-4 rounded-3xl border border-yellow-100 shadow-sm flex flex-col justify-between h-28 transition-transform hover:scale-[1.02]"; aqiTxt.innerText = `Помірне (${aqi})`; }
+        else { aqiBox.className = "bg-red-50 p-4 rounded-3xl border border-red-100 shadow-sm flex flex-col justify-between h-28 transition-transform hover:scale-[1.02]"; aqiTxt.innerText = `Брудне (${aqi})`; }
 
         updateLifestyle(c);
 
         document.getElementById('time-sunrise').innerText = new Date(d.sunrise[0]).toLocaleTimeString('uk-UA', {hour:'2-digit', minute:'2-digit'});
         document.getElementById('time-sunset').innerText = new Date(d.sunset[0]).toLocaleTimeString('uk-UA', {hour:'2-digit', minute:'2-digit'});
 
-        // Forecast
         const list = document.getElementById('forecast-container');
         list.innerHTML = '';
         const days = ['Нд','Пн','Вт','Ср','Чт','Пт','Сб'];
@@ -304,7 +312,6 @@
         for(let i=1; i<6; i++) {
             const date = new Date(d.time[i]);
             const icon = getWInfo(d.weathercode[i]).icon;
-            
             const div = document.createElement('div');
             div.className = "accordion-item bg-white/50 rounded-2xl border border-white/60 overflow-hidden cursor-pointer hover:bg-white/80 transition-all";
             div.innerHTML = `
@@ -325,11 +332,9 @@
     }
 
     function updateLifestyle(c) {
-        // Clothes
         let cText = c.apparent_temperature < 10 ? "Пуховик" : (c.apparent_temperature < 20 ? "Худі" : "Футболка");
         document.getElementById('txt-clothes').innerText = `${cText} (${Math.round(c.apparent_temperature)}°)`;
         
-        // Poodle
         const h = c.relative_humidity_2m;
         const pooBox = document.getElementById('card-poodle');
         let pClass = "bg-white/60 border-white/60";
@@ -339,7 +344,6 @@
         pooBox.className = `p-4 rounded-3xl border shadow-sm flex flex-col justify-between h-28 transition-transform hover:scale-[1.02] ${pClass}`;
         document.getElementById('txt-poodle').innerText = `${pText} (${h}%)`;
 
-        // Migraine
         const mDot = document.getElementById('dot-migraine');
         const p = c.surface_pressure;
         if(p<1000||p>1025) { mDot.className = "h-2.5 w-2.5 rounded-full bg-red-500 animate-pulse"; document.getElementById('txt-migraine').innerText = "Ризик"; }
@@ -356,8 +360,6 @@
             document.getElementById('txt-pop').innerText = (c.population/1000000).toFixed(1) + ' млн';
             document.getElementById('txt-drive').innerText = c.car.side === 'right' ? 'Справа' : 'Зліва';
             document.getElementById('img-flag').src = c.flags.png;
-            const currKey = Object.keys(c.currencies)[0];
-            document.getElementById('txt-currency').innerText = c.currencies[currKey].name;
         } catch(e) {}
 
         try {
@@ -372,19 +374,74 @@
         } catch(e) { document.getElementById('txt-holiday').innerText = "Немає даних"; }
     }
 
-    // --- RADIO (SVG & PREV) ---
+    // --- UPDATED Breweries (With Interaction) ---
+    async function loadBreweries(lat, lng) {
+        const container = document.getElementById('breweries-container');
+        container.innerHTML = '<span class="text-xs text-slate-400 pl-1">Шукаємо пиво... 🍺</span>';
+        try {
+            const res = await fetch(`https://api.openbrewerydb.org/v1/breweries?by_dist=${lat},${lng}&per_page=3`);
+            const data = await res.json();
+            if(data.length > 0) {
+                let html = '';
+                data.forEach(b => {
+                    let type = b.brewery_type;
+                    if(type === 'micro') type = 'Мікро'; if(type === 'brewpub') type = 'Паб'; if(type === 'bar') type = 'Бар';
+                    
+                    // Two buttons: Map and Link
+                    html += `
+                    <div class="bg-white/60 p-3 rounded-2xl border border-white/60 hover:bg-white transition-colors flex justify-between items-center group">
+                        <div class="flex-1 overflow-hidden mr-2">
+                            <span class="text-xs font-bold text-slate-800 block truncate">${b.name}</span>
+                            <span class="text-[10px] font-semibold text-slate-500 uppercase">${type}</span>
+                        </div>
+                        <div class="flex gap-2">
+                            <button onclick="showOnMap(${b.latitude}, ${b.longitude})" class="w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center hover:bg-blue-600 hover:text-white transition-colors text-sm" title="Показати на мапі">📍</button>
+                            ${b.website_url ? `<a href="${b.website_url}" target="_blank" class="w-8 h-8 rounded-full bg-slate-100 text-slate-600 flex items-center justify-center hover:bg-slate-800 hover:text-white transition-colors text-sm" title="Сайт">↗</a>` : ''}
+                        </div>
+                    </div>`;
+                });
+                container.innerHTML = html;
+            } else { container.innerHTML = '<span class="text-xs text-slate-400 pl-1">Поблизу немає броварень</span>'; }
+        } catch(e) { container.innerHTML = ''; }
+    }
+
+    // --- UPDATED Wiki (With Interaction) ---
+    async function loadNearbyWiki(lat, lng) {
+        const container = document.getElementById('wiki-container');
+        container.innerHTML = '<span class="text-xs text-slate-400 pl-1">Шукаю цікаві місця...</span>';
+        try {
+            const res = await fetch(`https://uk.wikipedia.org/w/api.php?action=query&list=geosearch&gscoord=${lat}|${lng}&gsradius=10000&gslimit=3&format=json&origin=*`);
+            const data = await res.json();
+            const pages = data.query.geosearch;
+            if(pages && pages.length > 0) {
+                let html = '';
+                pages.forEach(p => {
+                    html += `
+                    <div class="bg-white/60 p-3 rounded-2xl border border-white/60 hover:bg-white transition-colors flex justify-between items-center group">
+                        <span class="text-xs font-bold text-slate-700 truncate flex-1 mr-2">${p.title}</span>
+                        <div class="flex gap-2">
+                            <button onclick="showOnMap(${p.lat}, ${p.lon})" class="w-8 h-8 rounded-full bg-orange-100 text-orange-600 flex items-center justify-center hover:bg-orange-500 hover:text-white transition-colors text-sm" title="Показати на мапі">📍</button>
+                            <a href="https://uk.wikipedia.org/?curid=${p.pageid}" target="_blank" class="w-8 h-8 rounded-full bg-slate-100 text-slate-600 flex items-center justify-center hover:bg-slate-800 hover:text-white transition-colors text-sm" title="Читати">📖</a>
+                        </div>
+                    </div>`;
+                });
+                container.innerHTML = html;
+            } else { container.innerHTML = '<span class="text-xs text-slate-400">Нічого цікавого поруч</span>'; }
+        } catch(e) { container.innerHTML = ''; }
+    }
+
     let stations = []; let sIdx = 0;
     const audio = document.getElementById('audio-player');
+    const playBtn = document.getElementById('btn-play');
     const radioStatus = document.getElementById('radio-status');
     const radioLed = document.getElementById('radio-led');
-    const radioCover = document.getElementById('radio-cover');
+    const viz = document.getElementById('visualizer');
 
     async function setupRadio(code) {
         document.getElementById('radio-title').innerText = "Пошук...";
         radioStatus.innerText = "WAIT";
         radioLed.className = "w-2 h-2 rounded-full bg-slate-300";
-        radioCover.classList.add('music-paused');
-        
+        if(viz) viz.classList.remove('radio-playing');
         try {
             const res = await fetch(`https://de1.api.radio-browser.info/json/stations/bycountrycodeexact/${code}?limit=20&order=votes&reverse=true&hidebroken=true`);
             stations = await res.json();
@@ -395,49 +452,28 @@
     function prepStation(idx) {
         const s = stations[idx];
         document.getElementById('radio-title').innerText = s.name.trim();
-        radioStatus.innerText = "READY";
-        radioLed.className = "w-2 h-2 rounded-full bg-slate-300";
+        document.getElementById('radio-status').innerText = "READY";
         audio.src = s.url_resolved;
-        radioCover.classList.add('music-paused');
         updatePlayBtn(false);
     }
-    
     function updatePlayBtn(isPlaying) {
-        const p = document.getElementById('icon-play');
-        const ps = document.getElementById('icon-pause');
-        if(isPlaying) { p.classList.add('hidden'); ps.classList.remove('hidden'); }
-        else { p.classList.remove('hidden'); ps.classList.add('hidden'); }
+        const p = document.getElementById('icon-play'); const ps = document.getElementById('icon-pause');
+        if(isPlaying) { p.classList.add('hidden'); ps.classList.remove('hidden'); } else { p.classList.remove('hidden'); ps.classList.add('hidden'); }
     }
-
     document.getElementById('btn-play').onclick = () => {
         if(audio.paused) {
-            radioStatus.innerText = "LOADING";
+            document.getElementById('radio-status').innerText = "LOADING...";
             audio.play().then(() => { 
-                updatePlayBtn(true);
-                radioStatus.innerText = "LIVE";
-                radioLed.className = "w-2 h-2 rounded-full bg-green-500 animate-pulse";
-                radioCover.classList.remove('music-paused');
-            }).catch(() => { radioStatus.innerText = "ERROR"; document.getElementById('btn-next').click(); });
+                updatePlayBtn(true); document.getElementById('radio-status').innerText = "LIVE"; 
+                if(viz) viz.classList.add('radio-playing');
+            }).catch(() => { document.getElementById('radio-status').innerText = "ERROR"; document.getElementById('btn-next').click(); });
         } else {
-            audio.pause(); 
-            updatePlayBtn(false);
-            radioStatus.innerText = "PAUSED";
-            radioLed.className = "w-2 h-2 rounded-full bg-yellow-500";
-            radioCover.classList.add('music-paused');
+            audio.pause(); updatePlayBtn(false); document.getElementById('radio-status').innerText = "PAUSED";
+            if(viz) viz.classList.remove('radio-playing');
         }
     };
-    
-    document.getElementById('btn-next').onclick = () => {
-        sIdx = (sIdx + 1) % stations.length; prepStation(sIdx);
-        document.getElementById('btn-play').click();
-    };
-    
-    // NEW: Previous Button
-    document.getElementById('btn-prev').onclick = () => {
-        sIdx = (sIdx - 1 + stations.length) % stations.length; 
-        prepStation(sIdx);
-        document.getElementById('btn-play').click();
-    };
+    document.getElementById('btn-next').onclick = () => { sIdx = (sIdx + 1) % stations.length; prepStation(sIdx); document.getElementById('btn-play').click(); };
+    document.getElementById('btn-prev').onclick = () => { sIdx = (sIdx - 1 + stations.length) % stations.length; prepStation(sIdx); document.getElementById('btn-play').click(); };
 
     function getWInfo(code) {
         if (code === 0) return { text: "Ясно", icon: "☀️" };
