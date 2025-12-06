@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="uk" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>MUSE | UA Games</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Manrope', 'sans-serif'] },
+                    colors: {
+                        dark: { bg: '#09090b', card: '#18181b', border: '#27272a' },
+                        brand: { blue: '#3b82f6', yellow: '#eab308', red: '#ef4444', purple: '#8b5cf6', pink: '#ec4899', green: '#10b981' }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { background-color: #09090b; color: #ffffff; }
+        .hide-scroll::-webkit-scrollbar { display: none; }
+        .glass { background: rgba(24, 24, 27, 0.9); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border-bottom: 1px solid rgba(255,255,255,0.05); }
+        .fade-in { animation: fadeIn 0.4s ease-out forwards; opacity: 0; transform: translateY(10px); }
+        @keyframes fadeIn { to { opacity: 1; transform: translateY(0); } }
+        /* Steam Header Fit */
+        .steam-cover { object-position: center top; }
+    </style>
+</head>
+<body class="bg-dark-bg min-h-screen relative overflow-x-hidden selection:bg-brand-blue selection:text-white">
+
+    <header class="fixed top-0 w-full z-40 glass transition-all duration-300">
+        <div class="max-w-[1400px] mx-auto px-4 h-16 flex items-center justify-between gap-4">
+            <div class="flex items-center gap-2 cursor-pointer flex-shrink-0" onclick="location.reload()">
+                <div class="w-8 h-8 rounded-lg bg-gradient-to-tr from-brand-blue to-brand-purple flex items-center justify-center font-bold text-lg text-white">M</div>
+                <span class="font-bold text-xl tracking-tight hidden sm:block">Muse.</span>
+            </div>
+
+            <div class="flex-1 max-w-md">
+                <input type="text" id="search-input" placeholder="Пошук..." 
+                       class="w-full px-4 py-2 rounded-xl bg-[#27272a] border border-transparent focus:border-brand-blue/50 text-sm text-white placeholder-gray-500 outline-none transition-all">
+            </div>
+
+            <div class="flex items-center gap-1 sm:gap-2">
+                <button onclick="switchTab('movies')" id="tab-movies" class="nav-item p-2 rounded-lg text-white bg-white/10" title="Фільми">🎬</button>
+                <button onclick="switchTab('games')" id="tab-games" class="nav-item p-2 rounded-lg text-gray-400 hover:text-white hover:bg-white/10" title="Ігри (Знижки)">🎮</button>
+                <button onclick="switchTab('music')" id="tab-music" class="nav-item p-2 rounded-lg text-gray-400 hover:text-white hover:bg-white/10" title="Музика">🎵</button>
+                <button onclick="switchTab('books')" id="tab-books" class="nav-item p-2 rounded-lg text-gray-400 hover:text-white hover:bg-white/10" title="Книги">📚</button>
+                <div class="w-px h-6 bg-gray-700 mx-1"></div>
+                <button onclick="showSaved()" id="tab-saved" class="nav-item p-2 rounded-lg text-gray-400 hover:text-brand-red hover:bg-brand-red/10 transition group" title="Обране">
+                    ❤️ <span id="saved-count" class="text-xs font-bold ml-1 text-white">0</span>
+                </button>
+            </div>
+        </div>
+        
+        <div class="border-t border-[#27272a] bg-dark-bg/95 backdrop-blur">
+            <div class="max-w-[1400px] mx-auto px-4 py-2 flex gap-2 overflow-x-auto hide-scroll" id="filter-container"></div>
+        </div>
+    </header>
+
+    <main class="pt-36 pb-20 max-w-[1400px] mx-auto px-4 min-h-screen">
+        <div class="mb-6 flex justify-between items-end">
+            <h1 class="text-2xl font-bold text-white" id="page-title">Зараз у тренді</h1>
+            <div id="api-warning" class="hidden text-xs text-red-400 border border-red-900 bg-red-900/20 px-3 py-1 rounded-full">⚠️ Вставте TMDB API Key</div>
+        </div>
+
+        <div id="grid" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-6"></div>
+        
+        <div id="loader" class="hidden py-10 flex justify-center">
+            <div class="w-8 h-8 border-4 border-brand-blue border-t-transparent rounded-full animate-spin"></div>
+        </div>
+
+        <div class="mt-12 text-center">
+            <button id="load-more-btn" onclick="loadMore()" class="hidden px-6 py-2.5 rounded-full border border-[#27272a] hover:bg-white hover:text-black transition-all font-medium text-sm">
+                Завантажити ще
+            </button>
+        </div>
+    </main>
+
+    <div id="modal" class="fixed inset-0 z-[50] flex items-center justify-center p-0 sm:p-4 opacity-0 pointer-events-none transition-all duration-300">
+        <div class="absolute inset-0 bg-black/90 backdrop-blur-sm" onclick="closeModal()"></div>
+        <div id="modal-content" class="bg-[#121212] w-full max-w-5xl h-full sm:h-auto sm:max-h-[90vh] sm:rounded-2xl shadow-2xl overflow-hidden relative transform scale-95 transition-all duration-300 flex flex-col md:flex-row border border-[#27272a]">
+            </div>
+    </div>
+
+    <div id="video-overlay" class="fixed inset-0 z-[60] bg-black/95 flex flex-col items-center justify-center opacity-0 pointer-events-none transition-opacity duration-300 backdrop-blur-xl">
+        <button onclick="closeVideo()" class="absolute top-6 right-6 z-50 p-2 bg-white/10 rounded-full text-white hover:bg-white hover:text-black transition">✕</button>
+        <div class="w-full max-w-5xl px-4 video-enter">
+            <div id="video-container" class="w-full aspect-video bg-black rounded-2xl shadow-2xl overflow-hidden border border-[#27272a]"></div>
+        </div>
+    </div>
+
+    <div id="toast" class="fixed bottom-6 left-1/2 -translate-x-1/2 z-[70] bg-[#27272a] text-white px-4 py-2 rounded-full shadow-xl border border-white/10 text-sm font-medium translate-y-20 opacity-0 transition-all duration-300 flex items-center gap-2">
+        <span class="text-brand-blue text-lg">✓</span> <span id="toast-msg">Success</span>
+    </div>
+
+    <script>
+        // =================================================================
+        // 🔑 ТІЛЬКИ ОДИН КЛЮЧ (Для фільмів)
+        // =================================================================
+        const TMDB_API_KEY = 'd7397b9320954b044b1b8d22041d6bab';   
+        // =================================================================
+        
+        const USD_TO_UAH = 42; 
+
+        const state = {
+            tab: 'movies',
+            page: 1,
+            items: [],
+            saved: JSON.parse(localStorage.getItem('muse_saved') || '[]'),
+            filter: 'all',
+            query: ''
+        };
+
+        const GENRES = {
+            movies: [{id: 'all', name: 'Всі'}, {id: 28, name: 'Екшн'}, {id: 18, name: 'Драма'}, {id: 35, name: 'Комедія'}, {id: 878, name: 'Sci-Fi'}, {id: 27, name: 'Жахи'}],
+            games: [{id: 'all', name: 'Гарячі знижки'}, {id: 'aaa', name: 'AAA Хіти (>80)'}, {id: 'cheap', name: 'До 200 грн'}],
+            music: [{id: 'top', name: 'Топ Чарти'}, {id: 'pop', name: 'Pop'}, {id: 'rock', name: 'Rock'}, {id: 'hip-hop', name: 'Hip-Hop'}],
+            books: [{id: 'trending', name: 'Топ'}, {id: 'fantasy', name: 'Фентезі'}, {id: 'science', name: 'Наукпоп'}, {id: 'thriller', name: 'Детективи'}]
+        };
+
+        const grid = document.getElementById('grid');
+        const loader = document.getElementById('loader');
+        const modal = document.getElementById('modal');
+        const modalContent = document.getElementById('modal-content');
+        const videoOverlay = document.getElementById('video-overlay');
+        const videoContainer = document.getElementById('video-container');
+
+        window.addEventListener('DOMContentLoaded', () => {
+            if(!TMDB_API_KEY) document.getElementById('api-warning').classList.remove('hidden');
+            updateSavedCount();
+            switchTab('movies');
+
+            let timeout;
+            document.getElementById('search-input').addEventListener('input', (e) => {
+                clearTimeout(timeout);
+                timeout = setTimeout(() => {
+                    state.query = e.target.value;
+                    state.page = 1;
+                    if(state.tab === 'saved') showSaved();
+                    else {
+                        state.items = [];
+                        grid.innerHTML = '';
+                        fetchData();
+                    }
+                }, 600);
+            });
+
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape') {
+                    if (!videoOverlay.classList.contains('pointer-events-none')) closeVideo();
+                    else if (!modal.classList.contains('pointer-events-none')) closeModal();
+                }
+            });
+        });
+
+        // --- Nav ---
+        function switchTab(tab) {
+            state.tab = tab;
+            state.page = 1;
+            state.query = '';
+            state.items = [];
+            grid.innerHTML = '';
+            document.getElementById('search-input').value = '';
+            
+            const titles = {movies: 'Кінопрем\'єри', games: 'Знижки в Steam & Epic', music: 'Музичні Хіти', books: 'Бібліотека', saved: 'Колекція'};
+            document.getElementById('page-title').innerText = titles[tab];
+            
+            document.querySelectorAll('.nav-item').forEach(btn => btn.className = "nav-item p-2 rounded-lg text-gray-400 hover:text-white hover:bg-white/10 transition");
+            const activeBtn = document.getElementById(`tab-${tab}`);
+            const colors = {movies: 'bg-brand-blue', games: 'bg-brand-purple', music: 'bg-brand-pink', books: 'bg-brand-yellow', saved: 'bg-brand-red'};
+            if(activeBtn) activeBtn.className = `nav-item p-2 rounded-lg text-white ${colors[tab]} shadow-lg scale-110 transition`;
+
+            initFilters();
+            fetchData();
+        }
+
+        function showSaved() { state.tab = 'saved'; switchTab('saved'); renderSaved(); }
+
+        function initFilters() {
+            if(state.tab === 'saved') { document.getElementById('filter-container').innerHTML = ''; return; }
+            const container = document.getElementById('filter-container');
+            container.innerHTML = GENRES[state.tab].map(g => `
+                <button onclick="setFilter('${g.id}')" class="whitespace-nowrap px-4 py-1.5 rounded-full text-xs font-bold border border-[#27272a] transition-all ${state.filter == g.id ? 'bg-white text-black' : 'bg-[#18181b] text-gray-400 hover:text-white'}">
+                    ${g.name}
+                </button>
+            `).join('');
+        }
+
+        function setFilter(id) { state.filter = id; state.page = 1; state.items = []; grid.innerHTML = ''; initFilters(); fetchData(); }
+        async function loadMore() { state.page++; await fetchData(); }
+
+        // --- Fetching ---
+        async function fetchData() {
+            loader.classList.remove('hidden');
+            document.getElementById('load-more-btn').classList.add('hidden');
+            try {
+                if(state.tab === 'movies') await fetchMovies();
+                else if(state.tab === 'games') await fetchGamesCheapShark();
+                else if(state.tab === 'music') await fetchMusic();
+                else if(state.tab === 'books') await fetchBooks();
+            } catch(e) { console.error(e); } 
+            finally {
+                loader.classList.add('hidden');
+                if(state.items.length > 0 && state.tab !== 'saved') document.getElementById('load-more-btn').classList.remove('hidden');
+            }
+        }
+
+        async function fetchMovies() {
+            if (!TMDB_API_KEY) { renderError('Потрібен ключ TMDB'); return; }
+            let url = `https://api.themoviedb.org/3/trending/movie/week?api_key=${TMDB_API_KEY}&language=uk-UA&page=${state.page}`;
+            if(state.query) url = `https://api.themoviedb.org/3/search/movie?api_key=${TMDB_API_KEY}&query=${state.query}&language=uk-UA&page=${state.page}`;
+            else if(state.filter !== 'all') url = `https://api.themoviedb.org/3/discover/movie?api_key=${TMDB_API_KEY}&with_genres=${state.filter}&language=uk-UA&sort_by=popularity.desc&page=${state.page}`;
+            const res = await fetch(url);
+            const data = await res.json();
+            const newItems = data.results.map(m => ({ id: m.id, type: 'movie', title: m.title, subtitle: m.release_date?.split('-')[0]||'N/A', img: m.poster_path ? `https://image.tmdb.org/t/p/w500${m.poster_path}` : 'https://placehold.co/400x600/1a1a1a/FFF?text=No+Poster', rating: m.vote_average.toFixed(1), desc: m.overview||'Опис відсутній.' }));
+            appendItems(newItems);
+        }
+
+        // 🔥 GAMES LOGIC: 1. Get Deals, 2. Fetch Steam Details (Language/Desc) 🔥
+        async function fetchGamesCheapShark() {
+            let url = `https://www.cheapshark.com/api/1.0/deals?storeID=1&pageNumber=${state.page - 1}&pageSize=24`;
+            if(state.query) url = `https://www.cheapshark.com/api/1.0/deals?title=${state.query}&exact=0&storeID=1`; 
+            else {
+                if(state.filter === 'aaa') url += `&metacritic=80&onSale=1`;
+                else if(state.filter === 'cheap') url += `&upperPrice=5`;
+                else url += `&sortBy=Metacritic&desc=1&onSale=1`;
+            }
+
+            const res = await fetch(url);
+            const data = await res.json();
+            
+            const newItems = data.map(g => {
+                const priceUAH = Math.round(g.salePrice * USD_TO_UAH);
+                return {
+                    id: g.gameID,
+                    dealID: g.dealID,
+                    steamAppID: g.steamAppID, // Critical for next step
+                    type: 'game',
+                    title: g.title,
+                    subtitle: `🏷️ ≈${priceUAH} грн`,
+                    img: g.steamAppID ? `https://steamcdn-a.akamaihd.net/steam/apps/${g.steamAppID}/library_600x900_2x.jpg` : g.thumb,
+                    rating: g.metacriticScore || null,
+                    price: priceUAH,
+                    desc: 'Завантаження опису...', // Placeholder
+                    isUA: false // Will update asynchronously
+                };
+            });
+            
+            appendItems(newItems);
+            
+            // 🔥 ASYNC: Enrich with Steam Data (Language & Desc)
+            newItems.forEach(item => {
+                if(item.steamAppID) fetchSteamDetails(item.steamAppID, item.id);
+            });
+        }
+
+// Хак через corsproxy.io для доступу до Steam Store API
+        async function fetchSteamDetails(appID, internalID) {
+            try {
+                // Використовуємо corsproxy.io - він надійніший для Steam
+                const targetUrl = `https://store.steampowered.com/api/appdetails?appids=${appID}&l=ukrainian&cc=ua`;
+                const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(targetUrl)}`;
+                
+                const res = await fetch(proxyUrl);
+                const data = await res.json();
+                
+                if(data[appID] && data[appID].success) {
+                    const gameData = data[appID].data;
+                    
+                    // 1. Перевірка мови
+                    const supportedLangs = gameData.supported_languages || "";
+                    // Steam іноді пише "Ukrainian", іноді "Українська"
+                    const isUA = supportedLangs.includes("Ukrainian") || supportedLangs.includes("Українська");
+                    
+                    // 2. Оновлюємо стан
+                    const itemInState = state.items.find(i => i.id === internalID);
+                    if(itemInState) {
+                        // Очищаємо опис від HTML тегів, бо Steam віддає <br> та <b>
+                        const cleanDesc = gameData.short_description.replace(/<[^>]*>?/gm, '');
+                        itemInState.desc = cleanDesc;
+                        itemInState.isUA = isUA;
+                        
+                        // 3. Якщо гра вже на екрані і має укр мову - ліпимо бейдж
+                        if(isUA) {
+                            const badgeContainer = document.getElementById(`badge-${internalID}`);
+                            if(badgeContainer) {
+                                // Перевіряємо, чи ми вже не додали цей бейдж
+                                if(!badgeContainer.innerHTML.includes('UA')) {
+                                    badgeContainer.innerHTML += `<span class="bg-blue-600 text-white px-2 py-0.5 rounded text-[10px] font-bold shadow-lg ml-1 animate-pulse">🇺🇦 UA</span>`;
+                                }
+                            }
+                        }
+                    }
+                }
+            } catch(e) { 
+                console.log('Steam fetch skipped/blocked for', appID); 
+            }
+        }
+
+        async function fetchMusic() {
+            let term = state.query || (state.filter === 'top' ? 'hits 2025' : state.filter);
+            const offset = (state.page - 1) * 20;
+            const res = await fetch(`https://itunes.apple.com/search?term=${term}&media=music&entity=song&limit=20&offset=${offset}`);
+            const data = await res.json();
+            const newItems = data.results.map(t => ({ id: t.trackId, type: 'music', title: t.trackName, subtitle: t.artistName, img: t.artworkUrl100.replace('100x100', '600x600'), rating: null, desc: `Album: ${t.collectionName}.`, previewUrl: t.previewUrl, link: t.trackViewUrl }));
+            appendItems(newItems);
+        }
+
+        async function fetchBooks() {
+            let query = state.query || (state.filter === 'trending' ? 'bestsellers' : state.filter);
+            const offset = (state.page - 1) * 20;
+            const res = await fetch(`https://openlibrary.org/search.json?q=${query}&limit=20&offset=${offset}`);
+            const data = await res.json();
+            const newItems = data.docs.filter(b => b.cover_i).map(b => ({ id: b.key, type: 'book', title: b.title, subtitle: b.author_name?.[0]||'Unknown', img: `https://covers.openlibrary.org/b/id/${b.cover_i}-L.jpg`, rating: b.ratings_average?.toFixed(1)||null, desc: b.first_sentence?.[0]||'Опис відсутній.' }));
+            appendItems(newItems);
+        }
+
+        function appendItems(newItems) { state.items = [...state.items, ...newItems]; renderItems(newItems); }
+
+        function renderItems(items) {
+            items.forEach(item => {
+                const isSaved = state.saved.some(s => s.id == item.id);
+                const div = document.createElement('div');
+                div.className = "group relative fade-in";
+                
+                let badge = '';
+                if(item.rating) badge = `<div class="bg-black/60 backdrop-blur px-2 py-0.5 rounded text-[10px] font-bold text-white shadow-lg">★ ${item.rating}</div>`;
+                
+                // Badges Container
+                let badgesHtml = `<div id="badge-${item.id}" class="absolute top-2 left-2 flex flex-col gap-1 items-start">`;
+                
+                if(item.type === 'game') {
+                     if(item.rating) badgesHtml += `<div class="bg-brand-purple/90 text-white px-2 py-0.5 rounded text-[10px] font-bold shadow-lg">Meta ${item.rating}</div>`;
+                     // UA Badge will be injected here asynchronously
+                } else if(item.type === 'music') {
+                     badgesHtml += `<div class="bg-brand-pink text-white backdrop-blur px-2 py-0.5 rounded text-[10px] font-bold shadow-lg">🎵 Play</div>`;
+                } else {
+                     if(item.rating) badgesHtml += `<div class="bg-brand-yellow text-black backdrop-blur px-2 py-0.5 rounded text-[10px] font-bold shadow-lg">${item.rating}</div>`;
+                }
+                badgesHtml += `</div>`;
+
+                div.innerHTML = `
+                    <div class="relative aspect-[2/3] rounded-xl overflow-hidden bg-[#18181b] shadow-lg cursor-pointer border border-white/5" onclick="openModal('${item.id}')">
+                        <img src="${item.img}" class="w-full h-full object-cover transition duration-500 group-hover:scale-105 ${item.type==='game'?'steam-cover':''}" loading="lazy" onerror="this.src='https://placehold.co/400x600/1a1a1a/FFF?text=No+Image'">
+                        ${badgesHtml}
+                        <button onclick="toggleLike(event, '${item.id}')" class="absolute top-2 right-2 w-8 h-8 rounded-full bg-black/40 backdrop-blur flex items-center justify-center hover:bg-brand-red hover:text-white transition ${isSaved ? 'bg-brand-red text-white' : 'text-white'}">
+                           <svg class="w-4 h-4" fill="${isSaved ? 'currentColor' : 'none'}" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/></svg>
+                        </button>
+                    </div>
+                    <div class="mt-3 px-1">
+                        <h3 class="font-bold text-sm leading-tight text-white line-clamp-1 group-hover:text-brand-blue transition">${item.title}</h3>
+                        <p class="text-xs text-gray-500 mt-0.5 line-clamp-1">${item.subtitle}</p>
+                    </div>
+                `;
+                grid.appendChild(div);
+            });
+        }
+
+        function renderSaved() {
+            grid.innerHTML = '';
+            document.getElementById('load-more-btn').classList.add('hidden');
+            let items = state.saved;
+            if(state.query) items = items.filter(i => i.title.toLowerCase().includes(state.query.toLowerCase()));
+            if(items.length === 0) grid.innerHTML = `<div class="col-span-full text-center py-20 text-gray-500">Порожньо...</div>`;
+            else renderItems(items);
+        }
+        function renderError(msg) { grid.innerHTML = `<div class="col-span-full text-center py-20 text-red-400 border border-red-900/30 rounded-xl bg-red-900/10">${msg}</div>`; }
+
+        // --- Modal ---
+        async function openModal(id) {
+            let item = state.items.find(i => i.id == id) || state.saved.find(i => i.id == id);
+            if(!item) return;
+
+            modalContent.innerHTML = `
+                <div class="w-full md:w-4/12 h-64 md:h-auto bg-[#18181b] relative flex-shrink-0">
+                    <img src="${item.img}" class="w-full h-full object-cover opacity-80" onerror="this.src='https://placehold.co/400x600/1a1a1a/FFF?text=No+Image'">
+                    <div class="absolute inset-0 bg-gradient-to-t from-[#121212] via-transparent to-transparent md:bg-gradient-to-r"></div>
+                </div>
+                <div class="flex-1 p-6 md:p-10 overflow-y-auto max-h-[85vh] relative flex flex-col">
+                    <button onclick="closeModal()" class="absolute top-4 right-4 p-2 bg-white/5 rounded-full hover:bg-white/20 transition text-gray-400 hover:text-white z-20">✕</button>
+                    <div class="mb-6">
+                        <span class="text-xs font-bold text-brand-blue uppercase tracking-wider mb-2 block">${item.type.toUpperCase()}</span>
+                        <h2 class="text-3xl md:text-4xl font-bold leading-tight mb-3 text-white">${item.title}</h2>
+                        <div class="flex items-center gap-3 text-sm text-gray-400">
+                            ${item.isUA ? '<span class="px-2 py-0.5 bg-blue-600 text-white rounded font-bold">🇺🇦 Українська</span>' : ''}
+                            <span>${item.subtitle}</span>
+                        </div>
+                    </div>
+                    <div class="text-gray-300 leading-relaxed text-base mb-8" id="modal-desc">${item.desc}</div>
+                    
+                    <div id="action-buttons" class="mt-auto pt-6 border-t border-[#27272a] space-y-4"></div>
+                </div>
+            `;
+            modal.classList.remove('opacity-0', 'pointer-events-none');
+            modalContent.classList.remove('scale-95');
+            document.body.style.overflow = 'hidden';
+
+            const btnContainer = document.getElementById('action-buttons');
+
+            if(item.type === 'game') {
+                const steamLink = item.steamAppID ? `https://store.steampowered.com/app/${item.steamAppID}` : '#';
+                btnContainer.innerHTML = `
+                    <div class="flex gap-2">
+                         <a href="https://www.cheapshark.com/redirect?dealID=${item.dealID}" target="_blank" class="flex-1 text-center py-3 bg-brand-green text-black font-bold rounded-xl hover:opacity-90 transition">
+                            Купити (${item.price} грн)
+                         </a>
+                         ${item.steamAppID ? `
+                         <a href="${steamLink}" target="_blank" class="flex-1 text-center py-3 bg-[#171a21] text-white border border-gray-700 font-bold rounded-xl hover:bg-[#2a475e] transition flex items-center justify-center gap-2">
+                            <span>🎮</span> Steam
+                         </a>` : ''}
+                    </div>
+                `;
+            }
+            else if(item.type === 'music') {
+                btnContainer.innerHTML = `<div class="bg-[#27272a] p-4 rounded-xl flex flex-col gap-3"><div class="text-xs font-bold text-gray-400 uppercase">Прев'ю (30s)</div><audio controls class="w-full h-10" autoplay><source src="${item.previewUrl}" type="audio/mp4"></audio></div><a href="${item.link}" target="_blank" class="block w-full text-center py-3 bg-brand-pink text-white font-bold rounded-xl hover:opacity-90 transition">Apple Music</a>`;
+            }
+            else if(item.type === 'movie' && TMDB_API_KEY) {
+                try {
+                    const res = await fetch(`https://api.themoviedb.org/3/movie/${item.id}/videos?api_key=${TMDB_API_KEY}`);
+                    const data = await res.json();
+                    const video = data.results.find(v => v.site === 'YouTube' && v.type === 'Trailer') || data.results[0];
+                    if(video) btnContainer.innerHTML = `<button onclick="playTrailer('${video.key}')" class="w-full px-8 py-3 bg-white text-black font-bold rounded-xl hover:bg-gray-200 transition flex items-center justify-center gap-2"><span>▶</span> Дивитися трейлер</button>`;
+                    else btnContainer.innerHTML = `<span class="text-gray-500">Трейлер відсутній</span>`;
+                } catch(e) {}
+            }
+        }
+
+        function playTrailer(key) {
+            videoContainer.innerHTML = `<iframe class="w-full h-full rounded-lg" src="https://www.youtube-nocookie.com/embed/${key}?autoplay=1&modestbranding=1&rel=0" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>`;
+            document.getElementById('youtube-fallback').href = `https://www.youtube.com/watch?v=${key}`;
+            videoOverlay.classList.remove('opacity-0', 'pointer-events-none');
+        }
+        function closeVideo() { videoOverlay.classList.add('opacity-0', 'pointer-events-none'); setTimeout(() => videoContainer.innerHTML='', 300); }
+        function closeModal() { modal.classList.add('opacity-0', 'pointer-events-none'); modalContent.classList.add('scale-95'); document.body.style.overflow = ''; }
+        function toggleLike(e, id) {
+            e.stopPropagation();
+            const btn = e.currentTarget;
+            const item = state.items.find(i => i.id == id) || state.saved.find(i => i.id == id);
+            const index = state.saved.findIndex(s => s.id == id);
+            if(index === -1) { state.saved.push(item); btn.classList.add('bg-brand-red', 'text-white'); btn.querySelector('svg').setAttribute('fill', 'currentColor'); showToast(`Збережено`); } 
+            else { state.saved.splice(index, 1); btn.classList.remove('bg-brand-red', 'text-white'); btn.querySelector('svg').setAttribute('fill', 'none'); showToast(`Видалено`); if(state.tab === 'saved') renderSaved(); }
+            localStorage.setItem('muse_saved', JSON.stringify(state.saved));
+            updateSavedCount();
+        }
+        function updateSavedCount() { document.getElementById('saved-count').innerText = state.saved.length; }
+        function showToast(msg) { const t=document.getElementById('toast'); document.getElementById('toast-msg').innerText=msg; t.classList.remove('translate-y-20','opacity-0'); setTimeout(()=>t.classList.add('translate-y-20','opacity-0'),2500); }
+    </script>
+</body>
+</html>
