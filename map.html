@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>iWeather: Lifestyle</title>
+    
+    <script src='https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.js'></script>
+    <link href='https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.css' rel='stylesheet' />
+    <script src="https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-geocoder/v5.0.0/mapbox-gl-geocoder.min.js"></script>
+    <link rel="stylesheet" href="https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-geocoder/v5.0.0/mapbox-gl-geocoder.css" type="text/css">
+
+    <style>
+        :root {
+            --glass: rgba(255, 255, 255, 0.92);
+            --blur: blur(25px);
+            --shadow: 0 12px 40px rgba(0, 0, 0, 0.1);
+            --text-main: #1d1d1f;
+            --text-sec: #86868b;
+            --accent: #007aff;
+            --radius: 22px;
+        }
+
+        body { margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif; background: #f2f2f7; color: var(--text-main); overflow: hidden; }
+        #map { position: absolute; top: 0; bottom: 0; width: 100%; }
+
+        /* UI */
+        .ui-panel {
+            background: var(--glass);
+            backdrop-filter: var(--blur); -webkit-backdrop-filter: var(--blur);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            border: 1px solid rgba(255, 255, 255, 0.6);
+        }
+
+        .search-wrap { position: absolute; top: 20px; left: 20px; z-index: 10; }
+        .mapboxgl-ctrl-geocoder { border-radius: 18px !important; box-shadow: var(--shadow) !important; max-width: 280px !important; }
+
+        /* Widget (Top Right) */
+        .weather-widget {
+            position: absolute; top: 20px; right: 20px; z-index: 10;
+            padding: 20px 30px; text-align: right;
+            transition: opacity 0.5s ease; min-width: 160px;
+        }
+        .ww-city { font-size: 16px; font-weight: 700; color: #000; margin-bottom: 2px; }
+        .ww-time { font-size: 13px; font-weight: 500; color: var(--text-sec); margin-bottom: 10px; display: inline-block; background: rgba(0,0,0,0.05); padding: 2px 8px; border-radius: 8px;}
+        .ww-temp { font-size: 56px; font-weight: 800; line-height: 1; letter-spacing: -2px; }
+        .ww-desc { font-size: 15px; font-weight: 500; margin-top: 5px; text-transform: lowercase; color: var(--text-sec); }
+        .ww-desc::first-letter { text-transform: uppercase; }
+
+        /* Left Panel */
+        .details-panel {
+            position: absolute; bottom: 30px; left: 20px; z-index: 10;
+            width: 360px; max-height: 75vh; overflow-y: auto; padding: 25px;
+            transform: translateX(-120%); transition: transform 0.5s cubic-bezier(0.19, 1, 0.22, 1);
+        }
+        .details-panel.open { transform: translateX(0); }
+        .details-panel::-webkit-scrollbar { width: 0; }
+
+        h3 { margin: 0 0 12px 0; font-size: 12px; text-transform: uppercase; color: var(--text-sec); letter-spacing: 0.5px; font-weight: 700; }
+
+        /* Alert Boxes */
+        .alert-box {
+            padding: 14px; border-radius: 18px; margin-bottom: 10px; 
+            background: rgba(255,255,255,0.7); border-left: 5px solid #ddd;
+            font-size: 14px; line-height: 1.3; display: flex; align-items: center; gap: 12px;
+        }
+        .alert-icon { font-size: 22px; }
+        .alert-content b { display: block; font-size: 13px; margin-bottom: 2px; color: #000; }
+        .alert-content span { color: #444; font-size: 13px; }
+
+        .status-ok { border-left-color: #34c759; }
+        .status-warn { border-left-color: #ffcc00; }
+        .status-bad { border-left-color: #ff3b30; }
+        
+        /* Golden Hour Card */
+        .golden-card {
+            background: linear-gradient(135deg, #f6d365 0%, #fda085 100%);
+            color: #fff; padding: 15px; border-radius: 18px; margin-bottom: 15px;
+            display: flex; align-items: center; justify-content: space-between;
+            box-shadow: 0 5px 15px rgba(253, 160, 133, 0.4);
+        }
+        .golden-title { font-size: 12px; font-weight: 700; text-transform: uppercase; opacity: 0.9; }
+        .golden-time { font-size: 20px; font-weight: 800; }
+        .golden-icon { font-size: 24px; }
+
+        /* Stats Grid */
+        .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 20px; }
+        .stat-item { background: rgba(255,255,255,0.6); padding: 12px; border-radius: 14px; }
+        .stat-label { font-size: 11px; color: var(--text-sec); font-weight: 700; text-transform: uppercase; }
+        .stat-val { font-size: 16px; font-weight: 600; margin-top: 4px; }
+
+        /* Forecast List */
+        .forecast-row { display: flex; align-items: center; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid rgba(0,0,0,0.05); }
+        .f-day { width: 70px; font-weight: 600; font-size: 13px; text-transform: capitalize; }
+        .f-icon { width: 30px; text-align: center; }
+        .f-temp { font-weight: 700; font-size: 13px; }
+
+        /* 3D Button */
+        .btn-3d {
+            position: absolute; bottom: 30px; right: 20px; z-index: 10;
+            width: 48px; height: 48px; border-radius: 50%; border: none;
+            background: var(--glass); box-shadow: var(--shadow);
+            font-size: 20px; cursor: pointer; color: #333; transition: transform 0.2s;
+        }
+        .btn-3d:hover { transform: scale(1.1); }
+        .btn-3d.active { color: var(--accent); background: #fff; }
+
+    </style>
+</head>
+<body>
+
+<div id="map"></div>
+<div class="search-wrap" id="geocoder"></div>
+
+<div class="ui-panel weather-widget" id="widget" style="opacity: 0;">
+    <div class="ww-city" id="city-name">London</div>
+    <div class="ww-time" id="local-time">--:--</div>
+    <div class="ww-temp" id="temp-main">--°</div>
+    <div class="ww-desc" id="desc-main">--</div>
+</div>
+
+<div class="ui-panel details-panel" id="panel">
+    
+    <h3>Lifestyle & Health</h3>
+
+    <div class="golden-card" id="golden-box" style="display:none;">
+        <div>
+            <div class="golden-title">Золота Година 📸</div>
+            <div class="golden-time" id="golden-time">--:--</div>
+        </div>
+        <div class="golden-icon">🌅</div>
+    </div>
+    
+    <div class="alert-box status-ok" id="pollen-box">
+        <div class="alert-icon">🌿</div>
+        <div class="alert-content">
+            <b>Алергія (Пилок)</b>
+            <span id="pollen-text">Завантаження...</span>
+        </div>
+    </div>
+
+    <div class="alert-box status-ok" id="clothes-box">
+        <div class="alert-icon">👕</div>
+        <div class="alert-content">
+            <b>Гардероб</b>
+            <span id="clothes-text">--</span>
+        </div>
+    </div>
+
+    <div class="alert-box status-ok" id="poodle-box">
+        <div class="alert-icon">🐩</div>
+        <div class="alert-content">
+            <b>Зачіска</b>
+            <span id="poodle-text">--</span>
+        </div>
+    </div>
+
+    <div class="alert-box status-ok" id="migraine-box">
+        <div class="alert-icon">🧠</div>
+        <div class="alert-content">
+            <b>Мігрень</b>
+            <span id="migraine-text">--</span>
+        </div>
+    </div>
+
+    <h3>Деталі</h3>
+    <div class="stats-grid">
+        <div class="stat-item">
+            <div class="stat-label">Відчувається</div>
+            <div class="stat-val" id="val-feels">--°</div>
+        </div>
+        <div class="stat-item">
+            <div class="stat-label">Вітер</div>
+            <div class="stat-val" id="val-wind">--</div>
+        </div>
+        <div class="stat-item">
+            <div class="stat-label">Вологість</div>
+            <div class="stat-val" id="val-hum">--</div>
+        </div>
+        <div class="stat-item">
+            <div class="stat-label">UV Індекс</div>
+            <div class="stat-val" id="val-uv">--</div>
+        </div>
+    </div>
+
+    <h3>На тиждень</h3>
+    <div id="forecast-list"></div>
+</div>
+
+<button class="ui-panel btn-3d" id="toggle-3d" title="3D">🏢</button>
+
+<script>
+    // ----------------------------------------------------
+    // ВСТАВ ТОКЕН MAPBOX
+    // ----------------------------------------------------
+    mapboxgl.accessToken = 'pk.eyJ1IjoiaGVpc3NlbiIsImEiOiJjbWl0eGIyMHAwYWNrM2RzOGVnOGVyZnFmIn0.Px59SHwajQl0jgVAxzEmsA';
+
+    const map = new mapboxgl.Map({
+        container: 'map',
+        style: 'mapbox://styles/mapbox/light-v11', 
+        center: [30.52, 50.45], zoom: 12, pitch: 0, projection: 'globe'
+    });
+
+    // Атмосфера (Clean Sky)
+    map.on('style.load', () => {
+        map.setFog({ 'color': 'rgb(255, 255, 255)', 'high-color': 'rgb(220, 240, 255)', 'horizon-blend': 0.1 });
+        add3DLayer();
+    });
+
+    const geocoder = new MapboxGeocoder({ accessToken: mapboxgl.accessToken, mapboxgl: mapboxgl, marker: false, placeholder: 'Пошук міста...', language: 'uk' });
+    document.getElementById('geocoder').appendChild(geocoder.onAdd(map));
+    let marker = new mapboxgl.Marker({ color: '#007aff' });
+
+    // 3D Logic
+    const btn3D = document.getElementById('toggle-3d');
+    function add3DLayer() {
+        const layers = map.getStyle().layers;
+        const labelLayerId = layers.find(l => l.type === 'symbol' && l.layout['text-field'])?.id;
+        map.addLayer({
+            'id': '3d-buildings', 'source': 'composite', 'source-layer': 'building', 'filter': ['==', 'extrude', 'true'], 'type': 'fill-extrusion', 'minzoom': 14,
+            'layout': { 'visibility': 'none' },
+            'paint': { 'fill-extrusion-color': '#e0e0e0', 'fill-extrusion-height': ['get', 'height'], 'fill-extrusion-base': ['get', 'min_height'], 'fill-extrusion-opacity': 0.9 }
+        }, labelLayerId);
+    }
+    btn3D.addEventListener('click', () => {
+        const isVis = map.getLayoutProperty('3d-buildings', 'visibility') === 'visible';
+        map.setLayoutProperty('3d-buildings', 'visibility', isVis ? 'none' : 'visible');
+        map.easeTo({ pitch: isVis ? 0 : 55 });
+        btn3D.classList.toggle('active');
+    });
+
+
+    // --- MAIN LOGIC ---
+    map.on('click', (e) => loadAllData(e.lngLat.lat, e.lngLat.lng));
+    geocoder.on('result', (e) => loadAllData(e.result.center[1], e.result.center[0], e.result.text));
+
+    async function loadAllData(lat, lng, cityName) {
+        marker.setLngLat([lng, lat]).addTo(map);
+        map.flyTo({ center: [lng, lat], zoom: 13, speed: 1.4 });
+
+        document.getElementById('widget').style.opacity = '1';
+        document.getElementById('panel').classList.add('open');
+        document.getElementById('city-name').innerText = cityName || "Локація";
+        document.getElementById('local-time').innerText = "Оновлення...";
+
+        // 1. WEATHER + GOLDEN HOUR + TIMEZONE
+        const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&current=temperature_2m,apparent_temperature,relative_humidity_2m,weathercode,surface_pressure,wind_speed_10m&daily=weathercode,temperature_2m_max,temperature_2m_min,uv_index_max,sunrise,sunset&timezone=auto&forecast_days=6`;
+        
+        // 2. POLLEN (AIR QUALITY)
+        const pollenUrl = `https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${lat}&longitude=${lng}&current=alder_pollen,birch_pollen,grass_pollen,ragweed_pollen`;
+
+        try {
+            const [wRes, pRes] = await Promise.all([fetch(weatherUrl), fetch(pollenUrl)]);
+            const wData = await wRes.json();
+            const pData = await pRes.json();
+
+            updateUI(wData, pData);
+        } catch(e) { console.error(e); }
+    }
+
+    function updateUI(wData, pData) {
+        const c = wData.current;
+        const d = wData.daily;
+        
+        // --- LOCAL TIME ---
+        try {
+            const timeStr = new Date().toLocaleTimeString('uk-UA', { 
+                timeZone: wData.timezone, hour: '2-digit', minute: '2-digit' 
+            });
+            document.getElementById('local-time').innerText = `🕒 ${timeStr}`;
+        } catch(e) { document.getElementById('local-time').innerText = ""; }
+
+        // --- BASIC WEATHER ---
+        document.getElementById('temp-main').innerText = Math.round(c.temperature_2m) + '°';
+        document.getElementById('desc-main').innerText = getWInfo(c.weathercode).text;
+        document.getElementById('val-feels').innerText = Math.round(c.apparent_temperature) + '°';
+        document.getElementById('val-wind').innerText = c.wind_speed_10m + ' км/г';
+        document.getElementById('val-hum').innerText = c.relative_humidity_2m + '%';
+        document.getElementById('val-uv').innerText = d.uv_index_max[0].toFixed(1);
+
+        // --- GOLDEN HOUR ---
+        // Беремо час заходу сонця
+        const sunsetDate = new Date(d.sunset[0]);
+        // Золота година починається за годину до заходу
+        const goldenStart = new Date(sunsetDate.getTime() - 60*60*1000);
+        
+        const formatTime = (date) => date.toLocaleTimeString('uk-UA', { timeZone: wData.timezone, hour:'2-digit', minute:'2-digit'});
+        document.getElementById('golden-time').innerText = `${formatTime(goldenStart)} - ${formatTime(sunsetDate)}`;
+        document.getElementById('golden-box').style.display = 'flex';
+
+        // --- POLLEN (ALLERGY) ---
+        const pc = pData.current;
+        // Сумуємо основні алергени
+        const totalPollen = (pc.alder_pollen || 0) + (pc.birch_pollen || 0) + (pc.grass_pollen || 0) + (pc.ragweed_pollen || 0);
+        const pBox = document.getElementById('pollen-box');
+        const pText = document.getElementById('pollen-text');
+        
+        if(totalPollen < 10) {
+            pBox.className = 'alert-box status-ok';
+            pText.innerText = "Рівень пилку низький. Дихай вільно.";
+        } else if(totalPollen < 50) {
+            pBox.className = 'alert-box status-warn';
+            pText.innerText = "Помірний пилок. Чутливим приготуватись.";
+        } else {
+            pBox.className = 'alert-box status-bad';
+            pText.innerText = "Високий рівень алергенів! Прийми ліки.";
+        }
+
+        // --- POODLE & OUTFIT & MIGRAINE ---
+        // Poodle
+        const h = c.relative_humidity_2m;
+        const w = c.wind_speed_10m;
+        const pooBox = document.getElementById('poodle-box');
+        if(h > 80) { pooBox.className = 'alert-box status-bad'; document.getElementById('poodle-text').innerText = "Дуже волого. Хаос на голові."; }
+        else if(h > 60 && w > 15) { pooBox.className = 'alert-box status-warn'; document.getElementById('poodle-text').innerText = "Пухнастість підвищена."; }
+        else { pooBox.className = 'alert-box status-ok'; document.getElementById('poodle-text').innerText = "Зачіска буде ідеальною."; }
+
+        // Migraine
+        const pr = c.surface_pressure;
+        const mBox = document.getElementById('migraine-box');
+        if(pr < 1000 || pr > 1025) { mBox.className = 'alert-box status-warn'; document.getElementById('migraine-text').innerText = "Тиск скаче. Може боліти голова."; }
+        else { mBox.className = 'alert-box status-ok'; document.getElementById('migraine-text').innerText = "Тиск стабільний."; }
+
+        // Outfit
+        const t = c.apparent_temperature;
+        const cText = document.getElementById('clothes-text');
+        if(t < 5) cText.innerText = "Пуховик і шапка.";
+        else if(t < 15) cText.innerText = "Пальто або куртка.";
+        else if(t < 25) cText.innerText = "Футболка / Легкий одяг.";
+        else cText.innerText = "Льон, шорти, сандалі.";
+
+        // --- FORECAST ---
+        const list = document.getElementById('forecast-list');
+        list.innerHTML = '';
+        const days = ['нд', 'пн', 'вт', 'ср', 'чт', 'пт', 'сб'];
+        for(let i=1; i<6; i++) {
+            const date = new Date(d.time[i]);
+            const day = days[date.getDay()];
+            const icon = getWInfo(d.weathercode[i]).icon;
+            list.innerHTML += `
+                <div class="forecast-row">
+                    <div class="f-day">${day}</div>
+                    <div class="f-icon">${icon}</div>
+                    <div class="f-temp">${Math.round(d.temperature_2m_max[i])}° <span style="color:#aaa;font-weight:400">${Math.round(d.temperature_2m_min[i])}°</span></div>
+                </div>
+            `;
+        }
+    }
+
+    function getWInfo(code) {
+        if (code === 0) return { text: "Ясно", icon: "☀️" };
+        if (code <= 3) return { text: "Хмарно", icon: "☁️" };
+        if (code <= 48) return { text: "Туман", icon: "🌫️" };
+        if (code <= 67) return { text: "Дощ", icon: "🌧️" };
+        if (code <= 77) return { text: "Сніг", icon: "❄️" };
+        if (code <= 99) return { text: "Гроза", icon: "⚡" };
+        return { text: "--", icon: "" };
+    }
+
+</script>
+</body>
+</html>
