@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Meteo Portal Ultimate v2</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap');
+        
+        body { 
+            font-family: 'Manrope', sans-serif; 
+            background-color: #1a1d26; 
+            color: #e2e8f0; 
+        }
+        
+        /* Glass Panel Styling */
+        .panel {
+            background: #232732;
+            border: 1px solid #2d3342;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+
+        /* Modal Transitions */
+        .modal-bg { background: rgba(15, 23, 42, 0.8); backdrop-filter: blur(8px); }
+        .modal-content { 
+            background: #1f232d; 
+            border: 1px solid #3f465a;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5);
+            transform: scale(0.95); opacity: 0; transition: all 0.2s ease-out;
+        }
+        .modal-open .modal-content { transform: scale(1); opacity: 1; }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #1a1d26; }
+        ::-webkit-scrollbar-thumb { background: #3f465a; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: #4b5563; }
+
+        /* Active Tab Styling */
+        .tab-btn.active { background: #3b82f6; color: white; border-color: #3b82f6; }
+
+        /* Table */
+        .hourly-table th { 
+            text-align: left; padding: 12px 16px; color: #94a3b8; font-size: 0.75rem; 
+            text-transform: uppercase; font-weight: 600; background: #1f232d; 
+            position: sticky; left: 0; z-index: 10;
+        }
+        .hourly-table td { 
+            padding: 12px 8px; text-align: center; border-right: 1px solid #2d3342; min-width: 70px; 
+        }
+        .hourly-table tr:nth-child(even) { background: #262a36; }
+        .hourly-table tr:hover { background: #2d3342; }
+    </style>
+</head>
+
+<body class="min-h-screen flex flex-col lg:flex-row overflow-hidden">
+
+    <aside class="w-full lg:w-[340px] bg-[#1f232d] border-r border-[#2d3342] flex flex-col h-screen relative z-20 shrink-0 overflow-y-auto">
+        
+        <div class="p-6 border-b border-[#2d3342] sticky top-0 bg-[#1f232d] z-30 space-y-4">
+            
+            <div class="relative group">
+                <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <i data-lucide="search" class="h-4 w-4 text-gray-500"></i>
+                </div>
+                <input type="text" id="search-input" 
+                       class="block w-full pl-9 pr-3 py-2.5 border border-[#3f465a] rounded-xl leading-5 bg-[#1a1d26] text-gray-100 placeholder-gray-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 sm:text-sm transition" 
+                       placeholder="Пошук міста..."
+                       onkeyup="handleSearch(this.value)">
+                <div id="search-results" class="absolute top-full left-0 w-full mt-2 bg-[#232732] border border-[#3f465a] rounded-xl shadow-2xl hidden flex-col z-50 max-h-60 overflow-y-auto"></div>
+            </div>
+
+            <button onclick="openCityModal()" class="w-full py-2.5 px-4 bg-[#2d3342] hover:bg-[#3f465a] text-blue-400 font-medium rounded-xl transition flex items-center justify-center gap-2 border border-[#3f465a]">
+                <i data-lucide="map" class="w-4 h-4"></i>
+                Каталог міст
+            </button>
+
+            <div class="mt-4">
+                <h1 id="city-name" class="text-3xl font-bold text-white tracking-tight truncate">Київ</h1>
+                <p id="date-display" class="text-sm text-gray-400 font-medium">...</p>
+            </div>
+        </div>
+
+        <div class="p-6 flex flex-col items-center flex-grow">
+            <div id="main-icon" class="w-52 h-52 -my-2 drop-shadow-2xl filter saturate-110"></div>
+            
+            <div class="flex flex-col items-center">
+                <span id="main-temp" class="text-7xl font-bold text-white tracking-tighter ml-2">--</span>
+                <span id="weather-desc" class="text-sm text-gray-400 font-medium capitalize mt-2 bg-[#2d3342] px-3 py-1 rounded-full border border-[#3f465a]">--</span>
+            </div>
+
+            <div class="grid grid-cols-2 gap-3 w-full mt-8">
+                <div class="panel p-3 rounded-2xl flex flex-col items-center justify-center gap-1">
+                    <span class="text-[10px] text-gray-500 uppercase font-bold tracking-wider">Відчувається</span>
+                    <span class="text-lg font-bold text-white" id="feels-like">--</span>
+                </div>
+                <div class="panel p-3 rounded-2xl flex flex-col items-center justify-center gap-1">
+                    <span class="text-[10px] text-gray-500 uppercase font-bold tracking-wider">UV Індекс</span>
+                    <span class="text-lg font-bold text-white" id="uv-index">--</span>
+                </div>
+                <div class="panel p-3 rounded-2xl flex flex-col items-center justify-center gap-1 col-span-2">
+                    <span class="text-[10px] text-gray-500 uppercase font-bold tracking-wider">Вітер</span>
+                    <div class="flex items-center gap-2">
+                        <i data-lucide="wind" class="w-4 h-4 text-gray-400"></i>
+                        <span class="text-lg font-bold text-white"><span id="wind-speed">--</span> <span class="text-xs text-gray-500 font-normal">м/с</span></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="p-6 mt-auto">
+            <div class="w-full h-16 bg-[#1a1d26] rounded-xl border border-dashed border-[#3f465a] flex items-center justify-center relative">
+                <span class="text-[9px] text-gray-600 font-bold uppercase tracking-widest">Реклама</span>
+            </div>
+        </div>
+    </aside>
+
+    <main class="flex-1 flex flex-col h-screen overflow-y-auto bg-[#1a1d26] relative scroll-smooth">
+        
+        <div class="p-6 border-b border-[#2d3342] bg-[#1f232d] flex items-center justify-between sticky top-0 z-10">
+             <div class="text-sm text-gray-400 hidden md:block font-medium">Професійний моніторинг погоди</div>
+             <div class="h-10 px-6 bg-[#1a1d26] rounded-lg border border-[#2d3342] flex items-center justify-center">
+                 <span class="text-[9px] text-gray-600 uppercase font-bold">Top Leaderboard</span>
+             </div>
+        </div>
+
+        <div class="p-4 md:p-8 max-w-7xl mx-auto w-full space-y-6">
+
+            <div class="panel rounded-2xl overflow-hidden">
+                <div class="p-4 border-b border-[#2d3342] flex items-center gap-3 bg-[#1f232d]">
+                    <div class="bg-blue-500/10 p-1.5 rounded text-blue-400"><i data-lucide="clock" class="w-4 h-4"></i></div>
+                    <h3 class="font-bold text-white text-sm uppercase tracking-wide">Погодинний прогноз</h3>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full hourly-table whitespace-nowrap">
+                        <tbody id="hourly-table-body"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="panel rounded-2xl p-6">
+                <div class="flex items-center gap-3 mb-6">
+                    <div class="bg-green-500/10 p-1.5 rounded text-green-400"><i data-lucide="activity" class="w-4 h-4"></i></div>
+                    <h3 class="font-bold text-white text-sm uppercase tracking-wide">Температурний тренд</h3>
+                </div>
+                <div class="h-[250px] w-full"><canvas id="tempChart"></canvas></div>
+            </div>
+
+            <div>
+                <div class="flex items-center gap-3 mb-4 px-1">
+                    <div class="bg-purple-500/10 p-1.5 rounded text-purple-400"><i data-lucide="calendar-days" class="w-4 h-4"></i></div>
+                    <h3 class="font-bold text-white text-sm uppercase tracking-wide">Прогноз на 14 днів</h3>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3" id="daily-grid"></div>
+            </div>
+        </div>
+
+        <footer class="p-8 text-center text-gray-600 text-xs border-t border-[#2d3342] mt-auto bg-[#1f232d]">
+            Powered by Open-Meteo • 2025
+        </footer>
+    </main>
+
+    <div id="city-modal" class="fixed inset-0 z-50 hidden" onclick="closeCityModal(event)">
+        <div class="absolute inset-0 modal-bg transition-opacity opacity-0" id="modal-backdrop"></div>
+        
+        <div class="flex items-center justify-center min-h-screen p-4">
+            <div class="modal-content w-full max-w-2xl rounded-2xl relative z-10 flex flex-col max-h-[80vh]" onclick="event.stopPropagation()">
+                
+                <div class="p-6 border-b border-[#3f465a] flex justify-between items-center">
+                    <h2 class="text-xl font-bold text-white">Каталог локацій</h2>
+                    <button onclick="closeCityModal()" class="p-2 hover:bg-[#3f465a] rounded-lg transition"><i data-lucide="x" class="w-5 h-5 text-gray-400"></i></button>
+                </div>
+
+                <div class="flex p-4 gap-2 border-b border-[#3f465a] overflow-x-auto">
+                    <button onclick="switchCityTab('ukraine')" class="tab-btn active px-4 py-2 rounded-lg border border-[#3f465a] text-sm font-medium text-gray-300 hover:text-white transition whitespace-nowrap">🇺🇦 Україна</button>
+                    <button onclick="switchCityTab('europe')" class="tab-btn px-4 py-2 rounded-lg border border-[#3f465a] text-sm font-medium text-gray-300 hover:text-white transition whitespace-nowrap">🇪🇺 Європа</button>
+                    <button onclick="switchCityTab('world')" class="tab-btn px-4 py-2 rounded-lg border border-[#3f465a] text-sm font-medium text-gray-300 hover:text-white transition whitespace-nowrap">🌎 Світ</button>
+                </div>
+
+                <div class="p-6 overflow-y-auto flex-grow bg-[#1a1d26] rounded-b-2xl">
+                    <div id="city-grid" class="grid grid-cols-2 md:grid-cols-3 gap-3">
+                        </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- ICONS (Embedded SVG) ---
+        const Icons = {
+            sun: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="100%" height="100%"><circle cx="32" cy="32" r="14" fill="#facc15" stroke="#eab308" stroke-width="2"/><path d="M32 4V10M32 54V60M4 32H10M54 32H60M12.2 12.2L16.4 16.4M47.6 47.6L51.8 51.8M12.2 51.8L16.4 47.6M47.6 16.4L51.8 12.2" stroke="#facc15" stroke-width="3" stroke-linecap="round"/></svg>`,
+            moon: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="100%" height="100%"><path d="M42 22A18 18 0 1 1 20 44A14 14 0 0 0 42 22Z" fill="#e2e8f0" stroke="#94a3b8" stroke-width="1.5"/></svg>`,
+            partly: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="100%" height="100%"><circle cx="24" cy="24" r="10" fill="#facc15"/><path d="M18 44A8 8 0 0 1 26 30A12 12 0 0 1 48 38A8 8 0 0 1 42 52H24A8 8 0 0 1 18 44" fill="#e2e8f0" stroke="#cbd5e1" stroke-width="1.5"/></svg>`,
+            cloud: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="100%" height="100%"><path d="M16 42A10 10 0 0 1 26 24A14 14 0 0 1 50 32A10 10 0 0 1 42 50H22A10 10 0 0 1 16 42" fill="#cbd5e1" stroke="#94a3b8" stroke-width="1.5"/></svg>`,
+            rain: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="100%" height="100%"><path d="M16 36A10 10 0 0 1 26 18A14 14 0 0 1 50 26A10 10 0 0 1 42 44H22A10 10 0 0 1 16 36" fill="#94a3b8"/><path d="M24 48L22 56M32 48L30 56M40 48L38 56" stroke="#3b82f6" stroke-width="3" stroke-linecap="round"/></svg>`,
+            snow: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="100%" height="100%"><path d="M16 36A10 10 0 0 1 26 18A14 14 0 0 1 50 26A10 10 0 0 1 42 44H22A10 10 0 0 1 16 36" fill="#cbd5e1"/><g fill="#fff"><circle cx="24" cy="52" r="2"/><circle cx="34" cy="56" r="2"/><circle cx="44" cy="50" r="2"/></g></svg>`,
+            storm: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="100%" height="100%"><path d="M16 36A10 10 0 0 1 26 18A14 14 0 0 1 50 26A10 10 0 0 1 42 44H22A10 10 0 0 1 16 36" fill="#64748b"/><path d="M34 40L26 50H32L30 60" stroke="#facc15" stroke-width="3" fill="none" stroke-linejoin="round"/></svg>`,
+            fog: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="100%" height="100%"><path d="M14 42H50M18 50H46M16 34H48" stroke="#94a3b8" stroke-width="3" stroke-linecap="round"/></svg>`
+        };
+
+        const weatherDesc = { 0: "Ясно", 1: "Переважно ясно", 2: "Хмарно", 3: "Похмуро", 45: "Туман", 51: "Мряка", 61: "Дощ", 63: "Дощ", 71: "Сніг", 95: "Гроза" };
+
+        function getIcon(code, isDay = 1) {
+            if (code === 0) return isDay ? Icons.sun : Icons.moon;
+            if (code <= 2) return Icons.partly;
+            if (code === 3) return Icons.cloud;
+            if (code >= 45 && code <= 48) return Icons.fog;
+            if (code >= 51 && code <= 67) return Icons.rain;
+            if (code >= 71 && code <= 86) return Icons.snow;
+            if (code >= 95) return Icons.storm;
+            return Icons.cloud;
+        }
+
+        // --- CITY DATASETS ---
+        const CITY_DATA = {
+            ukraine: [
+                {name: "Київ", lat: 50.45, lon: 30.52},
+                {name: "Львів", lat: 49.84, lon: 24.03},
+                {name: "Харків", lat: 49.99, lon: 36.23},
+                {name: "Одеса", lat: 46.48, lon: 30.72},
+                {name: "Дніпро", lat: 48.46, lon: 35.04},
+                {name: "Запоріжжя", lat: 47.84, lon: 35.14},
+                {name: "Івано-Франківськ", lat: 48.92, lon: 24.71},
+                {name: "Вінниця", lat: 49.23, lon: 28.47},
+                {name: "Ужгород", lat: 48.62, lon: 22.29},
+                {name: "Чернівці", lat: 48.29, lon: 25.93},
+                {name: "Тернопіль", lat: 49.55, lon: 25.59},
+                {name: "Луцьк", lat: 50.75, lon: 25.34}
+            ],
+            europe: [
+                {name: "Варшава 🇵🇱", lat: 52.23, lon: 21.01},
+                {name: "Лондон 🇬🇧", lat: 51.51, lon: -0.13},
+                {name: "Париж 🇫🇷", lat: 48.85, lon: 2.35},
+                {name: "Берлін 🇩🇪", lat: 52.52, lon: 13.41},
+                {name: "Прага 🇨🇿", lat: 50.08, lon: 14.42},
+                {name: "Рим 🇮🇹", lat: 41.89, lon: 12.51},
+                {name: "Барселона 🇪🇸", lat: 41.38, lon: 2.18},
+                {name: "Амстердам 🇳🇱", lat: 52.37, lon: 4.89},
+                {name: "Відень 🇦🇹", lat: 48.21, lon: 16.37},
+                {name: "Стокгольм 🇸🇪", lat: 59.33, lon: 18.06}
+            ],
+            world: [
+                {name: "Нью-Йорк 🇺🇸", lat: 40.71, lon: -74.01},
+                {name: "Токіо 🇯🇵", lat: 35.69, lon: 139.69},
+                {name: "Дубай 🇦🇪", lat: 25.20, lon: 55.27},
+                {name: "Сідней 🇦🇺", lat: -33.87, lon: 151.21},
+                {name: "Торонто 🇨🇦", lat: 43.70, lon: -79.42},
+                {name: "Стамбул 🇹🇷", lat: 41.01, lon: 28.98}
+            ]
+        };
+
+        // --- STATE & INIT ---
+        let state = { lat: 50.45, lon: 30.52, name: "Київ" };
+        let chartInstance = null;
+        let searchDebounce;
+
+        async function init() {
+            const saved = localStorage.getItem('meteo_v2_data');
+            if (saved) state = JSON.parse(saved);
+            
+            updateDate();
+            renderCityGrid('ukraine'); // Default tab
+            await fetchData();
+        }
+
+        async function fetchData() {
+            try {
+                const url = `https://api.open-meteo.com/v1/forecast?latitude=${state.lat}&longitude=${state.lon}&current=temperature_2m,apparent_temperature,is_day,weather_code,wind_speed_10m&hourly=temperature_2m,weather_code,precipitation,precipitation_probability,wind_speed_10m,wind_direction_10m,wind_gusts_10m,is_day&daily=temperature_2m_max,temperature_2m_min,weather_code,precipitation_sum,uv_index_max&timezone=auto&forecast_days=14`;
+                const res = await fetch(url);
+                const data = await res.json();
+                render(data);
+            } catch (e) { console.error(e); }
+        }
+
+        function render(data) {
+            const cur = data.current;
+            
+            document.getElementById('city-name').innerText = state.name;
+            document.getElementById('main-temp').innerText = Math.round(cur.temperature_2m) + "°";
+            document.getElementById('weather-desc').innerText = weatherDesc[cur.weather_code] || "Невідомо";
+            document.getElementById('main-icon').innerHTML = getIcon(cur.weather_code, cur.is_day);
+            document.getElementById('feels-like').innerText = Math.round(cur.apparent_temperature) + "°";
+            document.getElementById('uv-index').innerText = data.daily.uv_index_max[0];
+            document.getElementById('wind-speed').innerText = (cur.wind_speed_10m / 3.6).toFixed(1);
+
+            renderTable(data.hourly);
+            renderChart(data.hourly);
+            renderCards(data.daily);
+            lucide.createIcons();
+        }
+
+        // --- RENDERERS ---
+        function renderTable(hourly) {
+            const tbody = document.getElementById('hourly-table-body');
+            tbody.innerHTML = '';
+            
+            let html = `
+                <tr><th class="sticky left-0 bg-[#1f232d] z-10">Час</th>${hourly.time.slice(0, 24).map(t => `<td class="text-gray-400 font-mono">${t.split('T')[1].slice(0, 5)}</td>`).join('')}</tr>
+                <tr><th class="sticky left-0 bg-[#1f232d] z-10"></th>${hourly.weather_code.slice(0, 24).map((c, i) => `<td class="py-2"><div class="w-8 h-8 mx-auto">${getIcon(c, hourly.is_day[i])}</div></td>`).join('')}</tr>
+                <tr><th class="sticky left-0 bg-[#1f232d] z-10">Темп</th>${hourly.temperature_2m.slice(0, 24).map(t => `<td class="font-bold text-lg ${t>0?'text-green-400':t<0?'text-blue-300':'text-white'}">${t>0?'+'+Math.round(t):Math.round(t)}°</td>`).join('')}</tr>
+                <tr><th class="sticky left-0 bg-[#1f232d] z-10">Вітер</th>${hourly.wind_speed_10m.slice(0, 24).map((s, i) => `<td><div class="flex flex-col items-center"><i data-lucide="arrow-up" style="transform:rotate(${hourly.wind_direction_10m[i]}deg)" class="w-3 h-3 text-gray-500 mb-1"></i><span class="text-xs text-gray-300">${(s/3.6).toFixed(1)}</span></div></td>`).join('')}</tr>
+                <tr><th class="sticky left-0 bg-[#1f232d] z-10">Пориви</th>${hourly.wind_gusts_10m.slice(0, 24).map(g => `<td class="text-xs text-gray-500">${(g/3.6).toFixed(1)}</td>`).join('')}</tr>
+                <tr><th class="sticky left-0 bg-[#1f232d] z-10">Опади</th>${hourly.precipitation.slice(0, 24).map(p => `<td>${p>0 ? `<span class="px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-400 text-xs font-bold">${p}</span>` : '<span class="text-gray-700">-</span>'}</td>`).join('')}</tr>
+            `;
+            tbody.innerHTML = html;
+        }
+
+        function renderChart(hourly) {
+            const ctx = document.getElementById('tempChart').getContext('2d');
+            const hours = hourly.time.slice(0, 24).map(t => t.split('T')[1].slice(0, 5));
+            const temps = hourly.temperature_2m.slice(0, 24);
+
+            if (chartInstance) chartInstance.destroy();
+
+            const gradient = ctx.createLinearGradient(0, 0, 0, 300);
+            gradient.addColorStop(0, 'rgba(59, 130, 246, 0.3)');
+            gradient.addColorStop(1, 'rgba(59, 130, 246, 0)');
+
+            chartInstance = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: hours,
+                    datasets: [{
+                        label: 'Температура',
+                        data: temps,
+                        borderColor: '#3b82f6',
+                        backgroundColor: gradient,
+                        borderWidth: 3,
+                        pointBackgroundColor: '#1a1d26',
+                        pointBorderColor: '#3b82f6',
+                        tension: 0.4,
+                        fill: true
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        x: { grid: { display: false }, ticks: { color: '#64748b' } },
+                        y: { display: false }
+                    }
+                }
+            });
+        }
+
+        function renderCards(daily) {
+            const grid = document.getElementById('daily-grid');
+            grid.innerHTML = '';
+            
+            for(let i=0; i<daily.time.length; i++) {
+                const date = new Date(daily.time[i]);
+                const dayName = i===0 ? 'Сьогодні' : date.toLocaleDateString('uk-UA', {weekday:'long'});
+                const capDay = dayName.charAt(0).toUpperCase() + dayName.slice(1);
+                const dateStr = date.toLocaleDateString('uk-UA', {day:'numeric', month:'short'});
+                const min = Math.round(daily.temperature_2m_min[i]);
+                const max = Math.round(daily.temperature_2m_max[i]);
+                const rain = daily.precipitation_sum[i];
+
+                grid.innerHTML += `
+                    <div class="panel p-4 rounded-xl flex items-center justify-between hover:bg-[#2d3342] transition group cursor-default">
+                        <div class="flex flex-col w-28">
+                            <span class="font-bold text-gray-200 text-sm group-hover:text-white transition">${capDay}</span>
+                            <span class="text-xs text-gray-500">${dateStr}</span>
+                        </div>
+                        <div class="w-10 h-10 flex items-center justify-center">${getIcon(daily.weather_code[i], 1)}</div>
+                        <div class="flex items-center gap-2 w-36 justify-end">
+                            ${rain > 0 ? `<div class="flex items-center gap-1 bg-blue-500/10 px-2 py-0.5 rounded-lg"><i data-lucide="droplets" class="w-3 h-3 text-blue-400"></i><span class="text-xs font-bold text-blue-400">${Math.round(rain)}мм</span></div>` : ''}
+                            <div class="text-right flex gap-2 font-mono text-sm"><span class="text-gray-500">${min}°</span><span class="text-white font-bold">${max}°</span></div>
+                        </div>
+                    </div>
+                `;
+            }
+        }
+
+        // --- MODAL & TABS ---
+        function openCityModal() {
+            const modal = document.getElementById('city-modal');
+            const backdrop = document.getElementById('modal-backdrop');
+            modal.classList.remove('hidden');
+            setTimeout(() => {
+                backdrop.classList.remove('opacity-0');
+                modal.classList.add('modal-open');
+            }, 10);
+        }
+
+        function closeCityModal(e) {
+            if (e && e.target !== e.currentTarget && e.target.id !== 'modal-backdrop') return;
+            const modal = document.getElementById('city-modal');
+            const backdrop = document.getElementById('modal-backdrop');
+            modal.classList.remove('modal-open');
+            backdrop.classList.add('opacity-0');
+            setTimeout(() => modal.classList.add('hidden'), 200);
+        }
+
+        function switchCityTab(region) {
+            // Update buttons
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+            event.target.classList.add('active');
+            renderCityGrid(region);
+        }
+
+        function renderCityGrid(region) {
+            const grid = document.getElementById('city-grid');
+            grid.innerHTML = '';
+            CITY_DATA[region].forEach(city => {
+                const el = document.createElement('button');
+                el.className = "p-4 bg-[#232732] border border-[#2d3342] hover:bg-[#2d3342] hover:border-blue-500/50 rounded-xl transition text-left flex flex-col gap-1 group";
+                el.innerHTML = `<span class="font-bold text-gray-200 group-hover:text-white transition">${city.name}</span>`;
+                el.onclick = () => {
+                    state = { lat: city.lat, lon: city.lon, name: city.name };
+                    localStorage.setItem('meteo_v2_data', JSON.stringify(state));
+                    closeCityModal();
+                    fetchData();
+                };
+                grid.appendChild(el);
+            });
+        }
+
+        // --- SEARCH ---
+        function handleSearch(val) {
+            clearTimeout(searchDebounce);
+            if(val.length < 2) return;
+            searchDebounce = setTimeout(async() => {
+                const res = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${val}&count=5&language=uk&format=json`);
+                const data = await res.json();
+                const box = document.getElementById('search-results');
+                box.innerHTML = '';
+                
+                if(data.results) {
+                    box.classList.remove('hidden'); box.classList.add('flex');
+                    data.results.forEach(c => {
+                        const d = document.createElement('div');
+                        d.className = "px-4 py-3 hover:bg-[#3f465a] cursor-pointer text-sm border-b border-[#3f465a] last:border-0 text-white";
+                        d.innerText = `${c.name}, ${c.country}`;
+                        d.onclick = () => {
+                            state = {lat: c.latitude, lon: c.longitude, name: c.name};
+                            localStorage.setItem('meteo_v2_data', JSON.stringify(state));
+                            box.classList.add('hidden');
+                            document.getElementById('search-input').value = '';
+                            fetchData();
+                        };
+                        box.appendChild(d);
+                    });
+                }
+            }, 300);
+        }
+
+        function updateDate() {
+            const d = new Date();
+            const s = d.toLocaleDateString('uk-UA', {weekday:'long', day:'numeric', month:'long'});
+            document.getElementById('date-display').innerText = s.charAt(0).toUpperCase() + s.slice(1);
+        }
+
+        init();
+    </script>
+</body>
+</html>
