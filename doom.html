@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Mini DOOM-like</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <style>
+    /* Витягнуто з style.css для самодостатності, але можна винести в окремий файл */
+    html, body {
+      margin: 0; padding: 0; overflow: hidden; width: 100%; height: 100%;
+      background: #111; color: #eee; font-family: Inter, system-ui, sans-serif;
+      user-select: none;
+    }
+    #hud {
+      position: fixed; left: 0; right: 0; bottom: 0; padding: 12px;
+      display: flex; justify-content: space-between; align-items: center;
+      color: #0f0; text-shadow: 0 0 8px #0f0;
+      pointer-events: none; font-weight: 700;
+    }
+    #crosshair {
+      position: fixed; left: 50%; top: 50%; width: 14px; height: 14px;
+      margin-left: -7px; margin-top: -7px;
+      border: 2px solid rgba(255,255,255,0.7); border-radius: 50%;
+      box-shadow: 0 0 6px rgba(255,255,255,0.5);
+      pointer-events: none;
+    }
+    #overlay {
+      position: fixed; inset: 0; display: grid; place-items: center;
+      background: rgba(0,0,0,0.75); color: #fff; z-index: 5;
+      font-size: 20px; text-align: center;
+    }
+    button {
+      background: #222; color: #fff; border: 1px solid #555;
+      padding: 10px 16px; cursor: pointer; border-radius: 6px;
+    }
+    button:hover { border-color: #888; }
+  </style>
+</head>
+<body>
+  <div id="overlay">
+    <div>
+      <div style="margin-bottom:12px;">Клікни, щоб зайти в режим миші</div>
+      <button id="startBtn">Start</button>
+    </div>
+  </div>
+  <div id="crosshair"></div>
+  <div id="hud">
+    <div id="health">HP: 100</div>
+    <div id="ammo">Ammo: ∞</div>
+    <div id="msg">WASD + миша, клік — постріл</div>
+  </div>
+  <canvas id="scene"></canvas>
+
+  <!-- Three.js із CDN -->
+  <script type="module">
+    import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.162/build/three.module.js";
+    import { PointerLockControls } from "https://cdn.jsdelivr.net/npm/three@0.162/examples/jsm/controls/PointerLockControls.js";
+
+    // ---------- Scene basics ----------
+    const canvas = document.getElementById("scene");
+    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(Math.min(devicePixelRatio, 1.5));
+    renderer.shadowMap.enabled = true;
+
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x0c0c0c);
+    scene.fog = new THREE.Fog(0x0c0c0c, 10, 45);
+
+    const camera = new THREE.PerspectiveCamera(75, innerWidth / innerHeight, 0.1, 200);
+    camera.position.set(0, 1.6, 5);
+
+    const controls = new PointerLockControls(camera, document.body);
+
+    const overlay = document.getElementById("overlay");
+    document.getElementById("startBtn").onclick = () => {
+      controls.lock();
+      overlay.style.display = "none";
+    };
+    controls.addEventListener("lock", () => overlay.style.display = "none");
+    controls.addEventListener("unlock", () => overlay.style.display = "grid");
+
+    // ---------- Lights ----------
+    const ambient = new THREE.HemisphereLight(0x333366, 0x080808, 0.6);
+    scene.add(ambient);
+
+    const spot = new THREE.SpotLight(0xffaa66, 2.0, 40, Math.PI / 5, 0.5, 1.5);
+    spot.position.set(0, 6, 0);
+    spot.target.position.set(0, 0, 0);
+    spot.castShadow = true;
+    scene.add(spot, spot.target);
+
+    // ---------- Level geometry ----------
+    const roomSize = 20;
+    const wallHeight = 4;
+
+    const floorMat = new THREE.MeshStandardMaterial({ color: 0x222222, metalness: 0.05, roughness: 0.9 });
+    const wallMat = new THREE.MeshStandardMaterial({ color: 0x3a3a48, metalness: 0.2, roughness: 0.7 });
+    const accentMat = new THREE.MeshStandardMaterial({ color: 0x882222, metalness: 0.3, roughness: 0.6, emissive: 0x220000 });
+
+    const floor = new THREE.Mesh(new THREE.PlaneGeometry(roomSize, roomSize, 1, 1), floorMat);
+    floor.rotation.x = -Math.PI / 2;
+    floor.receiveShadow = true;
+    scene.add(floor);
+
+    const ceiling = new THREE.Mesh(new THREE.PlaneGeometry(roomSize, roomSize), wallMat);
+    ceiling.rotation.x = Math.PI / 2;
+    ceiling.position.y = wallHeight;
+    scene.add(ceiling);
+
+    // Walls (simple box frame)
+    const wallGeo = new THREE.BoxGeometry(roomSize, wallHeight, 0.3);
+    const wall1 = new THREE.Mesh(wallGeo, wallMat);
+    const wall2 = wall1.clone(); const wall3 = wall1.clone(); const wall4 = wall1.clone();
+    wall1.position.set(0, wallHeight / 2, -roomSize / 2);
+    wall2.position.set(0, wallHeight / 2, roomSize / 2);
+    wall2.rotation.y = Math.PI;
+    wall3.position.set(-roomSize / 2, wallHeight / 2, 0);
+    wall3.rotation.y = Math.PI / 2;
+    wall4.position.set(roomSize / 2, wallHeight / 2, 0);
+    wall4.rotation.y = -Math.PI / 2;
+    [wall1, wall2, wall3, wall4].forEach(w => { w.castShadow = true; w.receiveShadow = true; scene.add(w); });
+
+    // Accent pillars
+    const pillarGeo = new THREE.BoxGeometry(1, wallHeight, 1);
+    for (let x of [-6, 6]) for (let z of [-6, 6]) {
+      const p = new THREE.Mesh(pillarGeo, accentMat);
+      p.position.set(x, wallHeight / 2, z);
+      p.castShadow = true; p.receiveShadow = true;
+      scene.add(p);
+    }
+
+    // ---------- Enemy billboard (sprite-ish) ----------
+    const enemyTexture = new THREE.CanvasTexture(makeEnemySprite());
+    const enemyMat = new THREE.SpriteMaterial({ map: enemyTexture, transparent: true });
+    const enemy = new THREE.Sprite(enemyMat);
+    enemy.scale.set(1.2, 1.8, 1.2);
+    enemy.position.set(0, 0.9, -5);
+    scene.add(enemy);
+
+    function makeEnemySprite() {
+      const c = document.createElement("canvas");
+      c.width = c.height = 256;
+      const g = c.getContext("2d");
+      g.fillStyle = "#00000000"; g.fillRect(0, 0, 256, 256);
+      g.fillStyle = "#550000"; g.beginPath(); g.ellipse(128, 150, 70, 90, 0, 0, Math.PI * 2); g.fill();
+      g.fillStyle = "#882222"; g.beginPath(); g.ellipse(128, 140, 60, 70, 0, 0, Math.PI * 2); g.fill();
+      g.fillStyle = "#ffddcc"; g.fillRect(108, 110, 40, 40);
+      g.fillStyle = "#000"; g.fillRect(115, 125, 8, 8); g.fillRect(133, 125, 8, 8);
+      g.fillStyle = "#aa0000"; g.fillRect(115, 140, 26, 6);
+      return c;
+    }
+
+    // ---------- Player movement ----------
+    const velocity = new THREE.Vector3();
+    const direction = new THREE.Vector3();
+    const keys = { w: false, a: false, s: false, d: false };
+    document.addEventListener("keydown", (e) => { if (keys.hasOwnProperty(e.key.toLowerCase())) keys[e.key.toLowerCase()] = true; });
+    document.addEventListener("keyup",   (e) => { if (keys.hasOwnProperty(e.key.toLowerCase())) keys[e.key.toLowerCase()] = false; });
+
+    // ---------- Shooting & hit detection ----------
+    const raycaster = new THREE.Raycaster();
+    let msgEl = document.getElementById("msg");
+    document.addEventListener("mousedown", () => {
+      if (!controls.isLocked) return;
+      shoot();
+    });
+
+    function shoot() {
+      raycaster.setFromCamera(new THREE.Vector2(0, 0), camera);
+      const hits = raycaster.intersectObject(enemy, false);
+      if (hits.length) {
+        enemy.visible = false;
+        msgEl.textContent = "Вбив! Перезайди, щоб повернути ворога";
+        flash(0x00ff00);
+      } else {
+        flash(0xffaa00);
+      }
+    }
+
+    function flash(color) {
+      spot.color.setHex(color);
+      setTimeout(() => spot.color.setHex(0xffaa66), 120);
+    }
+
+    // ---------- Resize ----------
+    window.addEventListener("resize", () => {
+      camera.aspect = innerWidth / innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(innerWidth, innerHeight);
+    });
+
+    // ---------- Loop ----------
+    const clock = new THREE.Clock();
+    function animate() {
+      requestAnimationFrame(animate);
+      const delta = clock.getDelta();
+      const speed = 6.0;
+
+      direction.set(
+        (keys.d ? 1 : 0) - (keys.a ? 1 : 0),
+        0,
+        (keys.s ? 1 : 0) - (keys.w ? 1 : 0)
+      ).normalize();
+
+      if (direction.lengthSq() > 0) {
+        const move = direction.clone().applyQuaternion(camera.quaternion).multiplyScalar(speed * delta);
+        controls.getObject().position.add(move);
+      }
+
+      // Keep y constant (no gravity in this demo)
+      controls.getObject().position.y = 1.6;
+
+      renderer.render(scene, camera);
+    }
+    scene.add(controls.getObject());
+    animate();
+  </script>
+</body>
+</html>
