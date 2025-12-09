@@ -5,7 +5,6 @@
   <title>Mini DOOM-like</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <style>
-    /* Витягнуто з style.css для самодостатності, але можна винести в окремий файл */
     html, body {
       margin: 0; padding: 0; overflow: hidden; width: 100%; height: 100%;
       background: #111; color: #eee; font-family: Inter, system-ui, sans-serif;
@@ -35,6 +34,16 @@
     }
     button:hover { border-color: #888; }
   </style>
+
+  <!-- Import map so that `import "three"` works -->
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://unpkg.com/three@0.162.0/build/three.module.js",
+      "three/addons/": "https://unpkg.com/three@0.162.0/examples/jsm/"
+    }
+  }
+  </script>
 </head>
 <body>
   <div id="overlay">
@@ -51,10 +60,9 @@
   </div>
   <canvas id="scene"></canvas>
 
-  <!-- Three.js із CDN -->
   <script type="module">
-    import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.162/build/three.module.js";
-    import { PointerLockControls } from "https://cdn.jsdelivr.net/npm/three@0.162/examples/jsm/controls/PointerLockControls.js";
+    import * as THREE from "three";
+    import { PointerLockControls } from "three/addons/controls/PointerLockControls.js";
 
     // ---------- Scene basics ----------
     const canvas = document.getElementById("scene");
@@ -108,7 +116,6 @@
     ceiling.position.y = wallHeight;
     scene.add(ceiling);
 
-    // Walls (simple box frame)
     const wallGeo = new THREE.BoxGeometry(roomSize, wallHeight, 0.3);
     const wall1 = new THREE.Mesh(wallGeo, wallMat);
     const wall2 = wall1.clone(); const wall3 = wall1.clone(); const wall4 = wall1.clone();
@@ -121,7 +128,6 @@
     wall4.rotation.y = -Math.PI / 2;
     [wall1, wall2, wall3, wall4].forEach(w => { w.castShadow = true; w.receiveShadow = true; scene.add(w); });
 
-    // Accent pillars
     const pillarGeo = new THREE.BoxGeometry(1, wallHeight, 1);
     for (let x of [-6, 6]) for (let z of [-6, 6]) {
       const p = new THREE.Mesh(pillarGeo, accentMat);
@@ -130,7 +136,7 @@
       scene.add(p);
     }
 
-    // ---------- Enemy billboard (sprite-ish) ----------
+    // ---------- Enemy billboard ----------
     const enemyTexture = new THREE.CanvasTexture(makeEnemySprite());
     const enemyMat = new THREE.SpriteMaterial({ map: enemyTexture, transparent: true });
     const enemy = new THREE.Sprite(enemyMat);
@@ -151,14 +157,14 @@
       return c;
     }
 
-    // ---------- Player movement ----------
+    // ---------- Movement ----------
     const velocity = new THREE.Vector3();
     const direction = new THREE.Vector3();
     const keys = { w: false, a: false, s: false, d: false };
-    document.addEventListener("keydown", (e) => { if (keys.hasOwnProperty(e.key.toLowerCase())) keys[e.key.toLowerCase()] = true; });
-    document.addEventListener("keyup",   (e) => { if (keys.hasOwnProperty(e.key.toLowerCase())) keys[e.key.toLowerCase()] = false; });
+    document.addEventListener("keydown", (e) => { const k = e.key.toLowerCase(); if (keys.hasOwnProperty(k)) keys[k] = true; });
+    document.addEventListener("keyup",   (e) => { const k = e.key.toLowerCase(); if (keys.hasOwnProperty(k)) keys[k] = false; });
 
-    // ---------- Shooting & hit detection ----------
+    // ---------- Shooting ----------
     const raycaster = new THREE.Raycaster();
     let msgEl = document.getElementById("msg");
     document.addEventListener("mousedown", () => {
@@ -192,6 +198,8 @@
 
     // ---------- Loop ----------
     const clock = new THREE.Clock();
+    scene.add(controls.getObject());
+
     function animate() {
       requestAnimationFrame(animate);
       const delta = clock.getDelta();
@@ -208,12 +216,9 @@
         controls.getObject().position.add(move);
       }
 
-      // Keep y constant (no gravity in this demo)
       controls.getObject().position.y = 1.6;
-
       renderer.render(scene, camera);
     }
-    scene.add(controls.getObject());
     animate();
   </script>
 </body>
