@@ -3,491 +3,1629 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Meteo Portal Ultimate v3.0</title>
+    <title>Meteo Portal v9.0</title>
     
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="https://unpkg.com/lucide@latest"></script>
-
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0"></script>
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+    
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        dark: { bg: '#050505', card: 'rgba(20, 25, 35, 0.6)' },
+                        light: { bg: '#f0f4f8', card: 'rgba(255, 255, 255, 0.8)' }
+                    }
+                }
+            }
+        }
+    </script>
+    
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700;800&display=swap');
+        
+        * { box-sizing: border-box; }
         
         body { 
             font-family: 'Manrope', sans-serif; 
-            background-color: #0f1115; 
-            color: #e2e8f0; 
+            transition: background 0.3s, color 0.3s;
+            margin: 0;
+            padding: 0;
         }
         
-        /* Glass Panel Styling */
-        .panel {
-            background: #1a1d24;
-            border: 1px solid #2d3342;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2);
+        /* Dark Theme */
+        body.dark { 
+            background-color: #050505; 
+            color: #e2e8f0; 
+            background-image: radial-gradient(circle at 10% 10%, #1a1d29 0%, #050505 40%);
         }
+        
+        /* Light Theme */
+        body.light { 
+            background-color: #f0f4f8; 
+            color: #1e293b; 
+            background-image: radial-gradient(circle at 10% 10%, #dbeafe 0%, #f0f4f8 40%);
+        }
+        
+        /* Glass Effect */
+        .dark .glass {
+            background: rgba(20, 25, 35, 0.6);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
+        }
+        
+        .light .glass {
+            background: rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(0, 0, 0, 0.05);
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.08);
+        }
+        
+        /* Utility Classes */
+        .compact-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; }
+        .compact-card { padding: 0.75rem; display: flex; flex-direction: column; align-items: center; justify-content: center; }
 
-        /* Full Screen Overlay Transitions */
-        .overlay {
-            opacity: 0; pointer-events: none; transition: all 0.3s ease-in-out;
-            transform: translateY(20px);
+        /* Animations */
+        @keyframes fadeIn { 
+            from { opacity: 0; transform: translateY(10px); } 
+            to { opacity: 1; transform: translateY(0); } 
         }
-        .overlay.active {
-            opacity: 1; pointer-events: all; transform: translateY(0);
-        }
-
+        .fade-in { animation: fadeIn 0.4s ease-out forwards; }
+        
         /* Scrollbar */
-        ::-webkit-scrollbar { width: 6px; height: 6px; }
-        ::-webkit-scrollbar-track { background: #0f1115; }
-        ::-webkit-scrollbar-thumb { background: #3f465a; border-radius: 3px; }
-        ::-webkit-scrollbar-thumb:hover { background: #4b5563; }
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        .dark ::-webkit-scrollbar-thumb { background: #334155; border-radius: 10px; }
+        .light ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
 
-        /* Table */
-        .hourly-table th { 
-            text-align: left; padding: 12px 16px; color: #94a3b8; font-size: 0.75rem; 
-            text-transform: uppercase; font-weight: 600; background: #1a1d24; 
-            position: sticky; left: 0; z-index: 10;
+        /* Tabs */
+        .tab-btn { transition: all 0.2s ease; }
+        .tab-btn.active { 
+            background: #3b82f6 !important; 
+            color: white !important; 
+            box-shadow: 0 0 15px rgba(59, 130, 246, 0.4); 
         }
-        .hourly-table td { 
-            padding: 12px 8px; text-align: center; border-right: 1px solid #2d3342; min-width: 70px; 
+        .tab-content { display: none; }
+        .tab-content.active { display: block; animation: fadeIn 0.4s ease; }
+        
+        /* Overlay */
+        .overlay { 
+            opacity: 0; 
+            pointer-events: none; 
+            transition: opacity 0.3s ease; 
         }
-        .hourly-table tr:nth-child(even) { background: #20242e; }
-        .hourly-table tr:hover { background: #2d3342; }
+        .overlay.active { 
+            opacity: 1; 
+            pointer-events: all; 
+        }
 
-        /* Custom Inputs */
-        .search-input:focus-within { box-shadow: 0 0 0 2px #3b82f6; border-color: #3b82f6; }
+        /* Moon Visualization */
+        .moon-container { width: 120px; height: 120px; position: relative; }
+        .moon-base {
+            width: 100%; 
+            height: 100%; 
+            border-radius: 50%;
+            background: linear-gradient(135deg, #f5f5f5 0%, #d4d4d4 50%, #a3a3a3 100%);
+            box-shadow: inset -8px -8px 20px rgba(0,0,0,0.3), 0 0 40px rgba(255,255,255,0.1);
+            position: relative; 
+            overflow: hidden;
+        }
+        .moon-shadow { 
+            position: absolute; 
+            top: 0; 
+            height: 100%; 
+            background: #1a1a2e; 
+            transition: all 0.5s ease; 
+        }
+        .moon-crater { 
+            position: absolute; 
+            border-radius: 50%; 
+            background: rgba(0,0,0,0.15); 
+        }
+        
+        /* UV Scale */
+        .uv-scale { 
+            height: 8px; 
+            border-radius: 4px; 
+            background: linear-gradient(to right, #22c55e 0%, #eab308 25%, #f97316 50%, #ef4444 75%, #7c3aed 100%); 
+        }
+        
+        /* Theme Toggle Animation */
+        .theme-toggle { transition: transform 0.3s ease; }
+        .theme-toggle:hover { transform: rotate(180deg); }
+        
+        /* Local Time */
+        .local-time { font-variant-numeric: tabular-nums; }
+        
+        /* Text colors for themes */
+        .dark .text-primary { color: #ffffff; }
+        .light .text-primary { color: #1e293b; }
+        .dark .text-secondary { color: #94a3b8; }
+        .light .text-secondary { color: #64748b; }
+        .dark .bg-card { background: rgba(20, 25, 35, 0.6); }
+        .light .bg-card { background: rgba(255, 255, 255, 0.7); }
+        .dark .bg-input { background: #151515; }
+        .light .bg-input { background: #f1f5f9; }
+        .dark .border-subtle { border-color: rgba(255, 255, 255, 0.1); }
+        .light .border-subtle { border-color: rgba(0, 0, 0, 0.1); }
     </style>
 </head>
 
-<body class="min-h-screen flex flex-col lg:flex-row overflow-hidden">
+<body class="dark min-h-screen flex flex-col lg:flex-row overflow-hidden text-sm md:text-base">
 
-    <!-- SIDEBAR -->
-    <aside class="w-full lg:w-[360px] bg-[#1a1d24] border-r border-[#2d3342] flex flex-col h-screen relative z-20 shrink-0 overflow-y-auto">
+    <aside class="w-full lg:w-[320px] border-r border-subtle flex flex-col h-screen relative z-20 shrink-0 glass">
         
-        <div class="p-6 border-b border-[#2d3342] sticky top-0 bg-[#1a1d24] z-30 space-y-6">
-            
-            <!-- Big Search Button -->
-            <button onclick="openSearchHub()" class="w-full text-left group">
-                <div class="flex items-center gap-3 p-3 rounded-xl bg-[#0f1115] border border-[#2d3342] group-hover:border-blue-500/50 transition shadow-inner">
-                    <i data-lucide="search" class="w-5 h-5 text-gray-500 group-hover:text-blue-400 transition"></i>
-                    <div class="flex flex-col">
-                        <span class="text-sm font-bold text-gray-200">Знайти локацію...</span>
-                        <span class="text-[10px] text-gray-500">Введіть назву міста</span>
+        <div class="p-5 border-b border-subtle">
+            <div class="flex gap-2 mb-4">
+                <button id="btn-search" class="flex-1 text-left group">
+                    <div class="flex items-center gap-3 p-3 rounded-xl bg-white/5 border border-subtle group-hover:border-blue-500/50 transition">
+                        <i data-lucide="search" class="w-4 h-4 text-secondary group-hover:text-blue-400"></i>
+                        <span class="text-sm font-bold text-secondary">Пошук... </span>
+                        <div class="ml-auto bg-white/10 px-1.5 py-0.5 rounded text-[10px] font-mono text-gray-500">⌘K</div>
                     </div>
-                    <div class="ml-auto bg-[#2d3342] px-2 py-1 rounded text-[10px] text-gray-400 font-mono">CMD+K</div>
-                </div>
-            </button>
-
-            <div class="mt-4">
-                <div class="flex items-center gap-2 mb-1">
-                    <img id="current-flag" src="" class="w-5 h-auto rounded-sm shadow-sm" alt="flag">
-                    <h1 id="city-name" class="text-3xl font-bold text-white tracking-tight truncate">Київ</h1>
-                </div>
-                <p id="date-display" class="text-sm text-gray-400 font-medium">...</p>
-            </div>
-        </div>
-
-        <div class="p-6 flex flex-col items-center flex-grow">
-            <div id="main-icon" class="w-52 h-52 -my-2 drop-shadow-2xl filter saturate-110"></div>
-            
-            <div class="flex flex-col items-center">
-                <span id="main-temp" class="text-8xl font-bold text-white tracking-tighter ml-2 bg-clip-text text-transparent bg-gradient-to-b from-white to-gray-400">--</span>
-                <span id="weather-desc" class="text-sm text-gray-300 font-medium capitalize mt-2 bg-[#2d3342] px-4 py-1.5 rounded-full border border-[#3f465a]">--</span>
-            </div>
-
-            <div class="grid grid-cols-2 gap-3 w-full mt-8">
-                <div class="panel p-4 rounded-2xl flex flex-col items-center justify-center gap-1">
-                    <span class="text-[10px] text-gray-500 uppercase font-bold tracking-wider">Відчувається</span>
-                    <span class="text-xl font-bold text-white" id="feels-like">--</span>
-                </div>
-                <div class="panel p-4 rounded-2xl flex flex-col items-center justify-center gap-1">
-                    <span class="text-[10px] text-gray-500 uppercase font-bold tracking-wider">UV Індекс</span>
-                    <span class="text-xl font-bold text-white" id="uv-index">--</span>
-                </div>
-                <div class="panel p-4 rounded-2xl flex flex-col items-center justify-center gap-1 col-span-2">
-                    <span class="text-[10px] text-gray-500 uppercase font-bold tracking-wider mb-1">Вітер</span>
-                    <div class="flex items-center gap-3">
-                        <div class="p-2 bg-[#2d3342] rounded-full"><i data-lucide="wind" class="w-5 h-5 text-blue-400"></i></div>
-                        <span class="text-2xl font-bold text-white"><span id="wind-speed">--</span> <span class="text-sm text-gray-500 font-normal">м/с</span></span>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </aside>
-
-    <!-- MAIN CONTENT -->
-    <main class="flex-1 flex flex-col h-screen overflow-y-auto bg-[#0f1115] relative scroll-smooth">
-        
-        <div class="p-6 border-b border-[#2d3342] bg-[#1a1d24] flex items-center justify-between sticky top-0 z-10">
-             <div class="flex items-center gap-2 text-gray-400">
-                <i data-lucide="bar-chart-2" class="w-4 h-4"></i>
-                <span class="text-sm font-medium">Dashboard v3.0</span>
-             </div>
-             <button onclick="locateUser()" class="flex items-center gap-2 px-4 py-2 bg-[#2d3342] hover:bg-[#3f465a] rounded-lg border border-[#3f465a] text-xs font-bold text-white uppercase tracking-wide transition">
-                 <i data-lucide="crosshair" class="w-4 h-4"></i> Локація
-             </button>
-        </div>
-
-        <div class="p-4 md:p-8 max-w-7xl mx-auto w-full space-y-6">
-
-            <div class="panel rounded-2xl overflow-hidden">
-                <div class="p-4 border-b border-[#2d3342] flex items-center gap-3 bg-[#1f232d]/50">
-                    <div class="bg-blue-500/10 p-1.5 rounded text-blue-400"><i data-lucide="clock" class="w-4 h-4"></i></div>
-                    <h3 class="font-bold text-white text-sm uppercase tracking-wide">Погодинний прогноз</h3>
-                </div>
-                <div class="overflow-x-auto">
-                    <table class="w-full hourly-table whitespace-nowrap">
-                        <tbody id="hourly-table-body"></tbody>
-                    </table>
-                </div>
-            </div>
-
-            <div class="panel rounded-2xl p-6">
-                <div class="flex items-center gap-3 mb-6">
-                    <div class="bg-green-500/10 p-1.5 rounded text-green-400"><i data-lucide="activity" class="w-4 h-4"></i></div>
-                    <h3 class="font-bold text-white text-sm uppercase tracking-wide">Температурний тренд</h3>
-                </div>
-                <div class="h-[250px] w-full"><canvas id="tempChart"></canvas></div>
-            </div>
-
-            <div>
-                <div class="flex items-center gap-3 mb-4 px-1">
-                    <div class="bg-purple-500/10 p-1.5 rounded text-purple-400"><i data-lucide="calendar-days" class="w-4 h-4"></i></div>
-                    <h3 class="font-bold text-white text-sm uppercase tracking-wide">Прогноз на 14 днів</h3>
-                </div>
-                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3" id="daily-grid"></div>
-            </div>
-        </div>
-    </main>
-
-    <!-- FULL SCREEN SEARCH HUB -->
-    <div id="search-hub" class="fixed inset-0 z-50 overlay bg-[#0f1115]/95 backdrop-blur-xl flex flex-col">
-        
-        <!-- Header -->
-        <div class="p-4 md:p-8 max-w-5xl mx-auto w-full flex flex-col gap-6">
-            <div class="flex justify-end">
-                <button onclick="closeSearchHub()" class="p-2 rounded-full hover:bg-[#2d3342] text-gray-400 transition">
-                    <i data-lucide="x" class="w-8 h-8"></i>
+                </button>
+                <button id="btn-theme" class="theme-toggle p-3 rounded-xl bg-white/5 border border-subtle hover:border-yellow-500/50 transition" title="Змінити тему">
+                    <i data-lucide="sun" class="w-5 h-5 text-yellow-400 hidden dark:block"></i>
+                    <i data-lucide="moon" class="w-5 h-5 text-blue-600 block dark:hidden"></i>
                 </button>
             </div>
             
-            <div class="relative search-input group rounded-2xl bg-[#1a1d24] border border-[#2d3342] transition">
-                <i data-lucide="search" class="absolute left-6 top-1/2 -translate-y-1/2 w-6 h-6 text-gray-500"></i>
-                <input type="text" id="hub-input" 
-                    class="w-full bg-transparent p-6 pl-16 text-xl md:text-2xl text-white placeholder-gray-600 focus:outline-none font-bold" 
-                    placeholder="Введіть назву міста (напр. Лондон, Київ)..."
-                    onkeyup="handleHubSearch(this.value)">
-                <div class="absolute right-6 top-1/2 -translate-y-1/2 hidden md:block">
-                     <span class="text-xs bg-[#2d3342] px-2 py-1 rounded text-gray-400 border border-[#3f465a]">ESC to close</span>
+            <div class="flex items-center gap-3">
+                <img id="flag" src="" class="w-8 h-6 rounded shadow opacity-90 object-cover" alt="Прапор">
+                <div class="overflow-hidden flex-1">
+                    <h1 id="city-name" class="text-xl font-black text-primary truncate">Завантаження...</h1>
+                    <p id="date-display" class="text-[10px] text-blue-400 font-bold uppercase tracking-wide">---</p>
                 </div>
+                <button id="btn-locate" class="p-2 rounded-lg bg-white/5 hover:bg-blue-600 transition group" title="Моє місцезнаходження">
+                    <i data-lucide="crosshair" class="w-4 h-4 text-secondary group-hover:text-white"></i>
+                </button>
             </div>
         </div>
 
-        <!-- Content Area -->
-        <div class="flex-grow overflow-y-auto px-4 md:px-8 pb-12">
-            <div class="max-w-5xl mx-auto">
-                
-                <!-- Category Tabs (Visible when NOT searching) -->
-                <div id="hub-categories" class="flex gap-2 mb-6 overflow-x-auto pb-2">
-                    <button onclick="filterCatalog('ukraine')" class="px-5 py-2.5 rounded-xl bg-[#2d3342] hover:bg-[#3b82f6] text-white text-sm font-bold border border-[#3f465a] transition whitespace-nowrap">🇺🇦 Україна</button>
-                    <button onclick="filterCatalog('europe')" class="px-5 py-2.5 rounded-xl bg-[#1a1d24] hover:bg-[#2d3342] text-gray-400 hover:text-white text-sm font-bold border border-[#2d3342] transition whitespace-nowrap">🇪🇺 Європа</button>
-                    <button onclick="filterCatalog('world')" class="px-5 py-2.5 rounded-xl bg-[#1a1d24] hover:bg-[#2d3342] text-gray-400 hover:text-white text-sm font-bold border border-[#2d3342] transition whitespace-nowrap">🌎 Світ</button>
+        <div class="p-5 flex flex-col items-center flex-grow overflow-y-auto">
+            <div id="main-icon" class="w-32 h-32 mb-2 drop-shadow-[0_0_25px_rgba(59,130,246,0.3)]"></div>
+            
+            <div class="flex flex-col items-center mb-4">
+                <span id="main-temp" class="text-7xl font-black text-transparent bg-clip-text bg-gradient-to-b from-white to-gray-400 dark:from-white dark:to-gray-400 light:from-gray-900 light:to-gray-500 tracking-tighter">--°</span>
+                <span id="weather-desc" class="text-xs font-bold text-blue-200 uppercase tracking-wide mt-1 bg-blue-500/10 px-3 py-1 rounded-full border border-blue-500/20">---</span>
+            </div>
+
+            <div class="glass w-full p-3 rounded-xl mb-2">
+                <div class="flex justify-between items-center mb-2">
+                    <span class="text-[10px] text-secondary uppercase font-bold flex items-center gap-1">
+                        <i data-lucide="sun" class="w-3 h-3"></i> UV Індекс
+                    </span>
+                    <span class="text-sm font-bold" id="uv-value">--</span>
                 </div>
+                <div class="uv-scale w-full relative">
+                    <div class="absolute w-3 h-3 bg-white rounded-full border-2 border-gray-800 -top-0.5 transition-all shadow-lg" id="uv-marker" style="left: 0%"></div>
+                </div>
+                <p class="text-[10px] text-center mt-2 text-secondary" id="uv-text">---</p>
+            </div>
 
-                <!-- Status Text -->
-                <h3 id="hub-status" class="text-gray-500 text-sm font-bold uppercase tracking-widest mb-4">Популярні локації</h3>
-
-                <!-- Results Grid -->
-                <div id="hub-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                    <!-- Cards Injected Here -->
+            <div class="compact-grid w-full">
+                <div class="glass compact-card rounded-xl">
+                    <span class="text-[10px] text-secondary uppercase font-bold">Відчувається</span>
+                    <span class="text-lg font-bold text-primary" id="feels-like">--°</span>
+                </div>
+                <div class="glass compact-card rounded-xl">
+                    <span class="text-[10px] text-secondary uppercase font-bold">Вологість</span>
+                    <span class="text-lg font-bold text-blue-400" id="humidity">--%</span>
+                </div>
+                <div class="glass compact-card rounded-xl">
+                    <span class="text-[10px] text-secondary uppercase font-bold">Вітер</span>
+                    <span class="text-lg font-bold text-primary" id="wind">-- м/с</span>
+                </div>
+                <div class="glass compact-card rounded-xl">
+                    <span class="text-[10px] text-secondary uppercase font-bold">Тиск</span>
+                    <span class="text-lg font-bold text-primary" id="pressure">-- гПа</span>
                 </div>
             </div>
+
+            <div class="glass w-full mt-2 p-3 rounded-xl flex items-center justify-around">
+                <div class="flex flex-col items-center">
+                    <i data-lucide="sunrise" class="w-5 h-5 text-orange-400 mb-1"></i>
+                    <span class="text-[10px] text-secondary uppercase">Схід</span>
+                    <span id="sunrise" class="text-sm font-bold text-primary">--:--</span>
+                </div>
+                <div class="w-px h-10 bg-white/10"></div>
+                <div class="flex flex-col items-center">
+                    <i data-lucide="sunset" class="w-5 h-5 text-purple-400 mb-1"></i>
+                    <span class="text-[10px] text-secondary uppercase">Захід</span>
+                    <span id="sunset" class="text-sm font-bold text-primary">--:--</span>
+                </div>
+            </div>
+            
+            <div class="mt-auto pt-4 text-[9px] text-gray-600 font-mono">Meteo Portal v9.0</div>
+        </div>
+    </aside>
+
+    <main class="flex-1 flex flex-col h-screen overflow-hidden relative">
+        
+        <header class="p-4 md:p-6 border-b border-subtle glass z-10 shrink-0 overflow-x-auto">
+            <nav class="flex p-1 bg-white/5 rounded-xl border border-subtle w-fit">
+                <button data-tab="overview" class="tab-btn active px-4 md:px-5 py-2 rounded-lg text-sm font-bold text-secondary flex items-center gap-2">
+                    <i data-lucide="layout-grid" class="w-4 h-4"></i>
+                    <span class="hidden sm:inline">Головна</span>
+                </button>
+                <button data-tab="air" class="tab-btn px-4 md:px-5 py-2 rounded-lg text-sm font-bold text-secondary flex items-center gap-2">
+                    <i data-lucide="wind" class="w-4 h-4"></i>
+                    <span class="hidden sm:inline">Повітря</span>
+                </button>
+                <button data-tab="pollen" class="tab-btn px-4 md:px-5 py-2 rounded-lg text-sm font-bold text-secondary flex items-center gap-2">
+                    <i data-lucide="flower-2" class="w-4 h-4"></i>
+                    <span class="hidden sm:inline">Пилок</span>
+                </button>
+                <button data-tab="astro" class="tab-btn px-4 md:px-5 py-2 rounded-lg text-sm font-bold text-secondary flex items-center gap-2">
+                    <i data-lucide="moon-star" class="w-4 h-4"></i>
+                    <span class="hidden sm:inline">Астрономія</span>
+                </button>
+            </nav>
+        </header>
+
+        <div class="flex-1 overflow-y-auto p-4 md:p-8 space-y-6">
+            
+            <section id="tab-overview" class="tab-content active space-y-6">
+                <div class="glass rounded-2xl p-4 md:p-6 fade-in">
+                    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 mb-4">
+                        <h3 class="font-bold text-primary text-lg flex items-center gap-2">
+                            <i data-lucide="activity" class="w-5 h-5 text-blue-500"></i>
+                            Погода на 24 години
+                        </h3>
+                        <div class="flex gap-4 text-xs font-medium text-secondary">
+                            <span class="flex items-center gap-1">
+                                <span class="w-2 h-2 rounded-full bg-blue-500"></span> Температура
+                            </span>
+                            <span class="flex items-center gap-1">
+                                <span class="w-2 h-2 rounded-full bg-blue-900"></span> Опади
+                            </span>
+                        </div>
+                    </div>
+                    <div class="h-[300px] md:h-[350px] w-full">
+                        <canvas id="weatherChart"></canvas>
+                    </div>
+                </div>
+
+                <div class="fade-in">
+                    <h3 class="font-bold text-primary text-lg mb-4">Прогноз на 14 днів</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3" id="daily-grid">
+                        </div>
+                </div>
+            </section>
+
+            <section id="tab-air" class="tab-content space-y-6">
+                <div class="glass rounded-2xl p-6 md:p-8 relative overflow-hidden fade-in">
+                    <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-80 h-80 blur-[100px] rounded-full pointer-events-none transition-colors duration-500" id="aqi-glow"></div>
+                    
+                    <div class="relative z-10 flex flex-col items-center text-center">
+                        <span class="text-xs font-bold text-secondary uppercase tracking-widest mb-2">Якість повітря (CAQI)</span>
+                        <span class="text-7xl md:text-8xl font-black text-primary tracking-tighter mb-2" id="aqi-value">--</span>
+                        <span class="text-xl md:text-2xl font-bold px-6 py-2 rounded-full border backdrop-blur-md mb-4" id="aqi-status">---</span>
+                        <p class="text-secondary max-w-lg text-sm leading-relaxed" id="aqi-desc">Завантаження даних...</p>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 fade-in">
+                    <div class="glass p-5 rounded-xl border-l-4 border-blue-500">
+                        <div class="flex justify-between items-start mb-3">
+                            <div>
+                                <h4 class="font-bold text-primary text-lg">PM2.5</h4>
+                                <span class="text-xs text-secondary">Дрібні частинки &lt; 2.5 мкм</span>
+                            </div>
+                            <span class="text-3xl font-bold text-blue-400" id="pol-pm25">--</span>
+                        </div>
+                        <p class="text-xs text-secondary mb-3">Проникають у легені та кров. Джерела: транспорт, промисловість, паління.</p>
+                        <div class="h-2 bg-gray-700/50 rounded-full overflow-hidden">
+                            <div class="h-full bg-gradient-to-r from-blue-400 to-blue-600 transition-all duration-500" id="pm25-bar" style="width: 0%"></div>
+                        </div>
+                    </div>
+                    
+                    <div class="glass p-5 rounded-xl border-l-4 border-indigo-500">
+                        <div class="flex justify-between items-start mb-3">
+                            <div>
+                                <h4 class="font-bold text-primary text-lg">PM10</h4>
+                                <span class="text-xs text-secondary">Грубі частинки &lt; 10 мкм</span>
+                            </div>
+                            <span class="text-3xl font-bold text-indigo-400" id="pol-pm10">--</span>
+                        </div>
+                        <p class="text-xs text-secondary mb-3">Пил, пилок, спори грибків. Подразнюють дихальні шляхи. </p>
+                        <div class="h-2 bg-gray-700/50 rounded-full overflow-hidden">
+                            <div class="h-full bg-gradient-to-r from-indigo-400 to-indigo-600 transition-all duration-500" id="pm10-bar" style="width: 0%"></div>
+                        </div>
+                    </div>
+                    
+                    <div class="glass p-5 rounded-xl border-l-4 border-orange-500">
+                        <div class="flex justify-between items-start mb-3">
+                            <div>
+                                <h4 class="font-bold text-primary text-lg">NO₂</h4>
+                                <span class="text-xs text-secondary">Діоксид азоту</span>
+                            </div>
+                            <span class="text-3xl font-bold text-orange-400" id="pol-no2">--</span>
+                        </div>
+                        <p class="text-xs text-secondary mb-3">Токсичний газ від спалювання палива. Шкодить дихальній системі.</p>
+                        <div class="h-2 bg-gray-700/50 rounded-full overflow-hidden">
+                            <div class="h-full bg-gradient-to-r from-orange-400 to-orange-600 transition-all duration-500" id="no2-bar" style="width: 0%"></div>
+                        </div>
+                    </div>
+                    
+                    <div class="glass p-5 rounded-xl border-l-4 border-teal-500">
+                        <div class="flex justify-between items-start mb-3">
+                            <div>
+                                <h4 class="font-bold text-primary text-lg">O₃</h4>
+                                <span class="text-xs text-secondary">Приземний озон</span>
+                            </div>
+                            <span class="text-3xl font-bold text-teal-400" id="pol-o3">--</span>
+                        </div>
+                        <p class="text-xs text-secondary mb-3">Утворюється під дією сонця. Подразнює очі та дихальні шляхи.</p>
+                        <div class="h-2 bg-gray-700/50 rounded-full overflow-hidden">
+                            <div class="h-full bg-gradient-to-r from-teal-400 to-teal-600 transition-all duration-500" id="o3-bar" style="width: 0%"></div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="glass rounded-2xl p-6 fade-in">
+                    <h4 class="font-bold text-primary mb-4 flex items-center gap-2">
+                        <i data-lucide="heart-pulse" class="w-5 h-5 text-red-400"></i>
+                        Рекомендації для здоров'я
+                    </h4>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4" id="health-recommendations">
+                        </div>
+                </div>
+            </section>
+
+            <section id="tab-pollen" class="tab-content space-y-6">
+                <div class="glass rounded-2xl p-6 md:p-8 fade-in">
+                    <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
+                        <h3 class="font-bold text-primary text-xl flex items-center gap-2">
+                            <i data-lucide="flower-2" class="w-6 h-6 text-pink-400"></i>
+                            Рівень пилку та алергенів
+                        </h3>
+                        <span class="text-xs text-secondary bg-white/5 px-3 py-1.5 rounded-full" id="pollen-date">---</span>
+                    </div>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6" id="pollen-grid">
+                        <div class="text-center">
+                            <div class="text-4xl mb-3">🌳</div>
+                            <h4 class="font-bold text-primary mb-4">Дерева</h4>
+                            <div class="space-y-2">
+                                <div class="flex justify-between items-center p-3 rounded-lg bg-white/5">
+                                    <span class="text-sm text-secondary">Вільха</span>
+                                    <span class="font-bold" id="pollen-alder">--</span>
+                                </div>
+                                <div class="flex justify-between items-center p-3 rounded-lg bg-white/5">
+                                    <span class="text-sm text-secondary">Береза</span>
+                                    <span class="font-bold" id="pollen-birch">--</span>
+                                </div>
+                                <div class="flex justify-between items-center p-3 rounded-lg bg-white/5">
+                                    <span class="text-sm text-secondary">Дуб</span>
+                                    <span class="font-bold" id="pollen-oak">--</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="text-center">
+                            <div class="text-4xl mb-3">🌾</div>
+                            <h4 class="font-bold text-primary mb-4">Трави</h4>
+                            <div class="space-y-2">
+                                <div class="flex justify-between items-center p-3 rounded-lg bg-white/5">
+                                    <span class="text-sm text-secondary">Злакові</span>
+                                    <span class="font-bold" id="pollen-grass">--</span>
+                                </div>
+                                <div class="flex justify-between items-center p-3 rounded-lg bg-white/5">
+                                    <span class="text-sm text-secondary">Амброзія</span>
+                                    <span class="font-bold" id="pollen-ragweed">--</span>
+                                </div>
+                                <div class="flex justify-between items-center p-3 rounded-lg bg-white/5">
+                                    <span class="text-sm text-secondary">Полин</span>
+                                    <span class="font-bold" id="pollen-mugwort">--</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="text-center">
+                            <div class="text-4xl mb-3">🍃</div>
+                            <h4 class="font-bold text-primary mb-4">Інше</h4>
+                            <div class="space-y-2">
+                                <div class="flex justify-between items-center p-3 rounded-lg bg-white/5">
+                                    <span class="text-sm text-secondary">Оливки</span>
+                                    <span class="font-bold" id="pollen-olive">--</span>
+                                </div>
+                                <div class="flex justify-between items-center p-3 rounded-lg bg-white/5">
+                                    <span class="text-sm text-secondary">Пил</span>
+                                    <span class="font-bold" id="pollen-dust">--</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="glass rounded-2xl p-6 fade-in">
+                    <h4 class="font-bold text-primary mb-4">Шкала рівнів (грн/м³)</h4>
+                    <div class="flex flex-wrap gap-3">
+                        <div class="flex items-center gap-2 px-3 py-1.5 rounded-full bg-green-500/10 border border-green-500/20">
+                            <span class="w-3 h-3 rounded-full bg-green-500"></span>
+                            <span class="text-sm text-green-400">Низький (0-20)</span>
+                        </div>
+                        <div class="flex items-center gap-2 px-3 py-1.5 rounded-full bg-yellow-500/10 border border-yellow-500/20">
+                            <span class="w-3 h-3 rounded-full bg-yellow-500"></span>
+                            <span class="text-sm text-yellow-400">Помірний (20-50)</span>
+                        </div>
+                        <div class="flex items-center gap-2 px-3 py-1.5 rounded-full bg-orange-500/10 border border-orange-500/20">
+                            <span class="w-3 h-3 rounded-full bg-orange-500"></span>
+                            <span class="text-sm text-orange-400">Високий (50-100)</span>
+                        </div>
+                        <div class="flex items-center gap-2 px-3 py-1.5 rounded-full bg-red-500/10 border border-red-500/20">
+                            <span class="w-3 h-3 rounded-full bg-red-500"></span>
+                            <span class="text-sm text-red-400">Дуже високий (100+)</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="glass rounded-2xl p-6 fade-in">
+                    <h4 class="font-bold text-primary mb-4 flex items-center gap-2">
+                        <i data-lucide="shield-check" class="w-5 h-5 text-green-400"></i>
+                        Поради алергікам
+                    </h4>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3" id="allergy-tips">
+                        </div>
+                </div>
+            </section>
+
+            <section id="tab-astro" class="tab-content space-y-6">
+                
+                <div class="glass rounded-2xl p-6 fade-in">
+                    <div class="flex flex-col sm:flex-row items-center justify-center gap-6 sm:gap-10">
+                        <div class="text-center">
+                            <span class="text-xs text-secondary uppercase font-bold block mb-1">Локальний час</span>
+                            <span class="text-4xl md:text-5xl font-black text-primary local-time" id="local-time">--:--:--</span>
+                        </div>
+                        <div class="hidden sm:block w-px h-16 bg-white/10"></div>
+                        <div class="text-center">
+                            <span class="text-xs text-secondary uppercase font-bold block mb-1">Часовий пояс</span>
+                            <span class="text-lg font-bold text-blue-400" id="timezone-name">---</span>
+                        </div>
+                        <div class="hidden sm:block w-px h-16 bg-white/10"></div>
+                        <div class="text-center">
+                            <span class="text-xs text-secondary uppercase font-bold block mb-1">Зараз</span>
+                            <span class="text-lg font-bold" id="day-night-status">---</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <div class="glass rounded-2xl p-6 md:p-8 fade-in relative overflow-hidden min-h-[380px] flex flex-col">
+                        <div class="absolute inset-x-0 bottom-0 h-1/2 transition-all duration-500" id="astro-gradient"></div>
+                        
+                        <h3 class="text-sm font-bold text-secondary uppercase tracking-widest mb-6 relative z-10 flex items-center gap-2" id="astro-title">
+                            ☀️ Сонце
+                        </h3>
+                        
+                        <div class="relative w-full max-w-[280px] h-36 mx-auto mb-6 flex-shrink-0">
+                            <svg viewBox="0 0 200 100" class="w-full h-full" preserveAspectRatio="xMidYMid meet">
+                                <line x1="0" y1="95" x2="200" y2="95" stroke="currentColor" stroke-opacity="0.2" stroke-width="2"/>
+                                <path d="M 10 95 Q 100 -20 190 95" fill="none" stroke="currentColor" stroke-opacity="0.1" stroke-width="2" stroke-dasharray="5,5"/>
+                                <path id="arc-traveled" d="M 10 95 Q 100 -20 190 95" fill="none" stroke="url(#arcGradient)" stroke-width="3" stroke-linecap="round"/>
+                                <circle id="celestial-glow" cx="100" cy="20" r="20" fill="rgba(251,191,36,0.2)">
+                                    <animate attributeName="r" values="18;24;18" dur="3s" repeatCount="indefinite"/>
+                                </circle>
+                                <circle id="celestial-body" cx="100" cy="20" r="12" fill="#fbbf24"/>
+                                <defs>
+                                    <linearGradient id="arcGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                                        <stop offset="0%" id="arc-color-start" style="stop-color:#f97316"/>
+                                        <stop offset="50%" id="arc-color-mid" style="stop-color:#fbbf24"/>
+                                        <stop offset="100%" id="arc-color-end" style="stop-color:#f97316"/>
+                                    </linearGradient>
+                                </defs>
+                            </svg>
+                        </div>
+                        
+                        <div class="grid grid-cols-4 gap-2 text-center mt-auto relative z-10">
+                            <div>
+                                <span class="text-[10px] text-secondary uppercase font-bold block" id="start-label">Схід</span>
+                                <span class="text-lg font-bold" id="astro-start">--:--</span>
+                            </div>
+                            <div>
+                                <span class="text-[10px] text-secondary uppercase font-bold block">Прогрес</span>
+                                <span class="text-xl font-bold" id="arc-progress">--%</span>
+                            </div>
+                            <div>
+                                <span class="text-[10px] text-secondary uppercase font-bold block">Тривалість</span>
+                                <span class="text-sm font-bold text-primary" id="arc-duration">-- год</span>
+                            </div>
+                            <div>
+                                <span class="text-[10px] text-secondary uppercase font-bold block" id="end-label">Захід</span>
+                                <span class="text-lg font-bold" id="astro-end">--:--</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="glass rounded-2xl p-6 md:p-8 fade-in relative overflow-hidden min-h-[380px] flex flex-col items-center justify-center">
+                        <div class="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-indigo-500/10 to-transparent"></div>
+                        
+                        <h3 class="text-sm font-bold text-secondary uppercase tracking-widest absolute top-6 left-6 flex items-center gap-2">
+                            🌙 Місяць
+                        </h3>
+                        
+                        <div class="moon-container mb-6 relative z-10">
+                            <div class="moon-base">
+                                <div class="moon-crater" style="width: 22px;height:22px;top: 18%;left:28%;"></div>
+                                <div class="moon-crater" style="width:16px;height:16px;top:48%;left:58%;"></div>
+                                <div class="moon-crater" style="width:12px;height: 12px;top:68%;left:22%;"></div>
+                                <div class="moon-crater" style="width:14px;height:14px;top:32%;left:68%;"></div>
+                                <div class="moon-crater" style="width:8px;height:8px;top:55%;left:40%;"></div>
+                                <div class="moon-shadow" id="moon-shadow-el"></div>
+                            </div>
+                        </div>
+                        
+                        <span class="text-2xl font-bold text-primary mb-2 relative z-10" id="moon-phase-name">---</span>
+                        <span class="text-sm text-purple-300 font-mono mb-1 relative z-10" id="moon-illumination">Освітленість: --%</span>
+                        <span class="text-xs text-secondary relative z-10" id="moon-age">День циклу: --</span>
+                    </div>
+                </div>
+            </section>
+        </div>
+    </main>
+
+    <div id="search-modal" class="fixed inset-0 z-50 overlay flex flex-col items-center pt-20 md:pt-24 px-4">
+        <div class="absolute inset-0 bg-black/80 backdrop-blur-xl" id="search-backdrop"></div>
+        
+        <div class="relative z-10 w-full max-w-2xl flex flex-col gap-4">
+            <div class="flex justify-between items-center text-secondary px-2">
+                <span class="text-xs font-bold uppercase tracking-wide">Пошук міста</span>
+                <button id="btn-close-search" class="p-2 hover:bg-white/10 rounded-lg transition">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+            
+            <input 
+                type="text" 
+                id="search-input" 
+                class="w-full bg-input border border-subtle rounded-2xl p-5 text-lg text-primary font-semibold placeholder-gray-500 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition" 
+                placeholder="Введіть назву міста..."
+                autocomplete="off"
+            >
+            
+            <div id="search-results" class="grid grid-cols-1 gap-2 overflow-y-auto max-h-[50vh] rounded-xl">
+                </div>
         </div>
     </div>
 
     <script>
-        // --- ICONS & CONFIG ---
-        const Icons = {
-            sun: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="100%" height="100%"><circle cx="32" cy="32" r="14" fill="#facc15" stroke="#eab308" stroke-width="2"/><path d="M32 4V10M32 54V60M4 32H10M54 32H60M12.2 12.2L16.4 16.4M47.6 47.6L51.8 51.8M12.2 51.8L16.4 47.6M47.6 16.4L51.8 12.2" stroke="#facc15" stroke-width="3" stroke-linecap="round"/></svg>`,
-            moon: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="100%" height="100%"><path d="M42 22A18 18 0 1 1 20 44A14 14 0 0 0 42 22Z" fill="#e2e8f0" stroke="#94a3b8" stroke-width="1.5"/></svg>`,
-            partly: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="100%" height="100%"><circle cx="24" cy="24" r="10" fill="#facc15"/><path d="M18 44A8 8 0 0 1 26 30A12 12 0 0 1 48 38A8 8 0 0 1 42 52H24A8 8 0 0 1 18 44" fill="#e2e8f0" stroke="#cbd5e1" stroke-width="1.5"/></svg>`,
-            cloud: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="100%" height="100%"><path d="M16 42A10 10 0 0 1 26 24A14 14 0 0 1 50 32A10 10 0 0 1 42 50H22A10 10 0 0 1 16 42" fill="#cbd5e1" stroke="#94a3b8" stroke-width="1.5"/></svg>`,
-            rain: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="100%" height="100%"><path d="M16 36A10 10 0 0 1 26 18A14 14 0 0 1 50 26A10 10 0 0 1 42 44H22A10 10 0 0 1 16 36" fill="#94a3b8"/><path d="M24 48L22 56M32 48L30 56M40 48L38 56" stroke="#3b82f6" stroke-width="3" stroke-linecap="round"/></svg>`,
-            snow: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="100%" height="100%"><path d="M16 36A10 10 0 0 1 26 18A14 14 0 0 1 50 26A10 10 0 0 1 42 44H22A10 10 0 0 1 16 36" fill="#cbd5e1"/><g fill="#fff"><circle cx="24" cy="52" r="2"/><circle cx="34" cy="56" r="2"/><circle cx="44" cy="50" r="2"/></g></svg>`,
-            storm: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="100%" height="100%"><path d="M16 36A10 10 0 0 1 26 18A14 14 0 0 1 50 26A10 10 0 0 1 42 44H22A10 10 0 0 1 16 36" fill="#64748b"/><path d="M34 40L26 50H32L30 60" stroke="#facc15" stroke-width="3" fill="none" stroke-linejoin="round"/></svg>`,
-            fog: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="100%" height="100%"><path d="M14 42H50M18 50H46M16 34H48" stroke="#94a3b8" stroke-width="3" stroke-linecap="round"/></svg>`
-        };
-        const weatherDesc = { 0: "Ясно", 1: "Переважно ясно", 2: "Хмарно", 3: "Похмуро", 45: "Туман", 51: "Мряка", 61: "Дощ", 63: "Дощ", 71: "Сніг", 95: "Гроза" };
+    (function() {
+        'use strict';
 
-        function getIcon(code, isDay = 1) {
-            if (code === 0) return isDay ? Icons.sun : Icons.moon;
-            if (code <= 2) return Icons.partly;
-            if (code === 3) return Icons.cloud;
-            if (code >= 45 && code <= 48) return Icons.fog;
-            if (code >= 51 && code <= 67) return Icons.rain;
-            if (code >= 71 && code <= 86) return Icons.snow;
-            if (code >= 95) return Icons.storm;
-            return Icons.cloud;
-        }
-
-        // --- CATALOG DATA (Expanded with Country Codes) ---
-        const CATALOG = {
-            ukraine: [
-                {name: "Київ", code: "ua", lat: 50.45, lon: 30.52},
-                {name: "Львів", code: "ua", lat: 49.84, lon: 24.03},
-                {name: "Харків", code: "ua", lat: 49.99, lon: 36.23},
-                {name: "Одеса", code: "ua", lat: 46.48, lon: 30.72},
-                {name: "Дніпро", code: "ua", lat: 48.46, lon: 35.04},
-                {name: "Запоріжжя", code: "ua", lat: 47.84, lon: 35.14},
-                {name: "Вінниця", code: "ua", lat: 49.23, lon: 28.47},
-                {name: "Івано-Франківськ", code: "ua", lat: 48.92, lon: 24.71},
-                {name: "Ужгород", code: "ua", lat: 48.62, lon: 22.29},
-                {name: "Ялта", code: "ua", lat: 44.49, lon: 34.16}
+        // ==================== CONFIGURATION ====================
+        const CONFIG = {
+            weatherDescriptions: {
+                0: "Ясно", 1: "Переважно ясно", 2: "Мінлива хмарність", 3: "Похмуро",
+                45: "Туман", 48: "Паморозь",
+                51: "Легка мряка", 53: "Мряка", 55: "Сильна мряка",
+                56: "Крижана мряка", 57: "Сильна крижана мряка",
+                61: "Невеликий дощ", 63: "Дощ", 65: "Сильний дощ",
+                66: "Крижаний дощ", 67: "Сильний крижаний дощ",
+                71: "Невеликий сніг", 73: "Сніг", 75: "Сильний сніг", 77: "Снігова крупа",
+                80: "Невеликі зливи", 81: "Зливи", 82: "Сильні зливи",
+                85: "Невеликий снігопад", 86: "Сильний снігопад",
+                95: "Гроза", 96: "Гроза з градом", 99: "Гроза з сильним градом"
+            },
+            
+            moonPhases: [
+                { name: "Новий місяць", emoji: "🌑" },
+                { name: "Молодий місяць", emoji: "🌒" },
+                { name: "Перша чверть", emoji: "🌓" },
+                { name: "Прибуваючий місяць", emoji: "🌔" },
+                { name: "Повний місяць", emoji: "🌕" },
+                { name: "Спадаючий місяць", emoji: "🌖" },
+                { name: "Остання чверть", emoji: "🌗" },
+                { name: "Старий місяць", emoji: "🌘" }
             ],
-            europe: [
-                {name: "Варшава", code: "pl", lat: 52.23, lon: 21.01},
-                {name: "Лондон", code: "gb", lat: 51.51, lon: -0.13},
-                {name: "Париж", code: "fr", lat: 48.85, lon: 2.35},
-                {name: "Берлін", code: "de", lat: 52.52, lon: 13.41},
-                {name: "Рим", code: "it", lat: 41.89, lon: 12.51},
-                {name: "Мадрид", code: "es", lat: 40.41, lon: -3.70},
-                {name: "Амстердам", code: "nl", lat: 52.37, lon: 4.89},
-                {name: "Прага", code: "cz", lat: 50.08, lon: 14.42},
-                {name: "Відень", code: "at", lat: 48.21, lon: 16.37},
-                {name: "Осло", code: "no", lat: 59.91, lon: 10.75}
+            
+            uvLevels: [
+                { max: 2, text: "Низький", color: "text-green-400", advice: "Безпечно перебувати на сонці" },
+                { max: 5, text: "Помірний", color: "text-yellow-400", advice: "Використовуйте сонцезахисний крем SPF 30+" },
+                { max: 7, text: "Високий", color: "text-orange-400", advice: "Обмежте перебування на сонці з 11:00 до 16:00" },
+                { max: 10, text: "Дуже високий", color: "text-red-400", advice: "Уникайте сонця, носіть захисний одяг" },
+                { max: Infinity, text: "Екстремальний", color: "text-purple-400", advice: "Залишайтесь у приміщенні!" }
             ],
-            world: [
-                {name: "Нью-Йорк", code: "us", lat: 40.71, lon: -74.01},
-                {name: "Токіо", code: "jp", lat: 35.69, lon: 139.69},
-                {name: "Дубай", code: "ae", lat: 25.20, lon: 55.27},
-                {name: "Сідней", code: "au", lat: -33.87, lon: 151.21},
-                {name: "Торонто", code: "ca", lat: 43.70, lon: -79.42},
-                {name: "Сінгапур", code: "sg", lat: 1.35, lon: 103.82}
-            ]
+            
+            aqiLevels: [
+                { max: 20, status: "Чудова", color: "text-green-400", bg: "bg-green-500/20", border: "border-green-500/50",
+                  desc: "Якість повітря ідеальна. Насолоджуйтесь прогулянками та спортом на свіжому повітрі без обмежень." },
+                { max: 40, status: "Добра", color: "text-lime-400", bg: "bg-lime-500/20", border: "border-lime-500/50",
+                  desc: "Якість повітря прийнятна для більшості людей. Можна займатися активностями на вулиці." },
+                { max: 60, status: "Посередня", color: "text-yellow-400", bg: "bg-yellow-500/20", border: "border-yellow-500/50",
+                  desc: "Чутливим групам (астматики, діти, літні люди) варто обмежити тривалі навантаження надворі." },
+                { max: 80, status: "Погана", color: "text-orange-400", bg: "bg-orange-500/20", border: "border-orange-500/50",
+                  desc: "Усім рекомендується скоротити фізичні навантаження на вулиці. Чутливим групам краще залишатися вдома." },
+                { max: 100, status: "Дуже погана", color: "text-red-400", bg: "bg-red-500/20", border: "border-red-500/50",
+                  desc: "Уникайте активностей на вулиці. Тримайте вікна зачиненими. Використовуйте очищувач повітря." },
+                { max: Infinity, status: "Небезпечна", color: "text-purple-400", bg: "bg-purple-500/20", border: "border-purple-500/50",
+                  desc: "Надзвичайна ситуація! Залишайтеся в приміщенні. Використовуйте респіратор при виході." }
+            ],
+            
+            defaultCity: { lat: 50.45, lon: 30.52, name: "Київ", code: "ua" },
+            storageKeys: { state: 'meteo_v9_state', history: 'meteo_v9_history', theme: 'meteo_v9_theme' }
         };
 
-        let state = { lat: 50.45, lon: 30.52, name: "Київ", code: "ua" };
-        let chartInstance = null;
-        let searchDebounce;
+        // ==================== WEATHER ICONS (SVG) ====================
+        const ICONS = {
+            clearDay: `<svg viewBox="0 0 64 64" width="100%" height="100%"><circle cx="32" cy="32" r="12" fill="#fbbf24"><animate attributeName="r" values="11;13;11" dur="3s" repeatCount="indefinite"/></circle><g stroke="#fbbf24" stroke-width="3" stroke-linecap="round"><line x1="32" y1="6" x2="32" y2="14"/><line x1="32" y1="50" x2="32" y2="58"/><line x1="6" y1="32" x2="14" y2="32"/><line x1="50" y1="32" x2="58" y2="32"/><line x1="13" y1="13" x2="19" y2="19"/><line x1="45" y1="45" x2="51" y2="51"/><line x1="13" y1="51" x2="19" y2="45"/><line x1="45" y1="19" x2="51" y2="13"/></g></svg>`,
+            clearNight: `<svg viewBox="0 0 64 64" width="100%" height="100%"><path d="M40 18 A16 16 0 1 1 18 40 A12 12 0 0 0 40 18Z" fill="#e2e8f0"><animate attributeName="opacity" values="1;0.85;1" dur="4s" repeatCount="indefinite"/></path><circle cx="48" cy="14" r="1.5" fill="#fef3c7"><animate attributeName="opacity" values="1;0.3;1" dur="2s" repeatCount="indefinite"/></circle><circle cx="54" cy="26" r="1" fill="#fef3c7"><animate attributeName="opacity" values="0.4;1;0.4" dur="2.5s" repeatCount="indefinite"/></circle></svg>`,
+            partlyCloudyDay: `<svg viewBox="0 0 64 64" width="100%" height="100%"><circle cx="24" cy="20" r="10" fill="#fbbf24"/><g stroke="#fbbf24" stroke-width="2" stroke-linecap="round"><line x1="24" y1="4" x2="24" y2="8"/><line x1="8" y1="20" x2="12" y2="20"/><line x1="12" y1="8" x2="15" y2="11"/><line x1="36" y1="8" x2="33" y2="11"/></g><path d="M20 54 A12 12 0 0 1 28 36 A14 14 0 0 1 54 46 A10 10 0 0 1 46 58 H26 A12 12 0 0 1 20 54" fill="#e2e8f0" stroke="#cbd5e1" stroke-width="1"/></svg>`,
+            partlyCloudyNight: `<svg viewBox="0 0 64 64" width="100%" height="100%"><path d="M30 12 A10 10 0 1 1 16 26 A8 8 0 0 0 30 12Z" fill="#cbd5e1"/><path d="M20 54 A12 12 0 0 1 28 36 A14 14 0 0 1 54 46 A10 10 0 0 1 46 58 H26 A12 12 0 0 1 20 54" fill="#94a3b8" stroke="#64748b" stroke-width="1"/></svg>`,
+            cloudy: `<svg viewBox="0 0 64 64" width="100%" height="100%"><path d="M14 44 A12 12 0 0 1 24 24 A16 16 0 0 1 52 36 A10 10 0 0 1 44 52 H20 A12 12 0 0 1 14 44" fill="#94a3b8" stroke="#64748b" stroke-width="1"/></svg>`,
+            overcast: `<svg viewBox="0 0 64 64" width="100%" height="100%"><path d="M10 38 A8 8 0 0 1 18 26 A10 10 0 0 1 38 30 A6 6 0 0 1 34 40 H14 A8 8 0 0 1 10 38" fill="#64748b"/><path d="M18 52 A10 10 0 0 1 28 34 A14 14 0 0 1 54 44 A8 8 0 0 1 46 56 H24 A10 10 0 0 1 18 52" fill="#94a3b8" stroke="#64748b" stroke-width="1"/></svg>`,
+            fog: `<svg viewBox="0 0 64 64" width="100%" height="100%"><g stroke="#94a3b8" stroke-width="4" stroke-linecap="round"><line x1="10" y1="26" x2="54" y2="26"><animate attributeName="opacity" values="0.4;0.9;0.4" dur="4s" repeatCount="indefinite"/></line><line x1="14" y1="38" x2="50" y2="38"><animate attributeName="opacity" values="0.9;0.4;0.9" dur="4s" repeatCount="indefinite"/></line><line x1="10" y1="50" x2="54" y2="50"><animate attributeName="opacity" values="0.6;1;0.6" dur="4s" repeatCount="indefinite"/></line></g></svg>`,
+            drizzle: `<svg viewBox="0 0 64 64" width="100%" height="100%"><path d="M16 36 A10 10 0 0 1 26 20 A12 12 0 0 1 48 28 A8 8 0 0 1 42 42 H22 A10 10 0 0 1 16 36" fill="#94a3b8"/><g stroke="#60a5fa" stroke-width="2" stroke-linecap="round"><line x1="22" y1="48" x2="20" y2="54"><animate attributeName="opacity" values="0;1;0" dur="1.2s" repeatCount="indefinite"/></line><line x1="32" y1="48" x2="30" y2="54"><animate attributeName="opacity" values="0;1;0" dur="1.2s" begin="0.4s" repeatCount="indefinite"/></line><line x1="42" y1="48" x2="40" y2="54"><animate attributeName="opacity" values="0;1;0" dur="1.2s" begin="0.8s" repeatCount="indefinite"/></line></g></svg>`,
+            rain: `<svg viewBox="0 0 64 64" width="100%" height="100%"><path d="M14 34 A10 10 0 0 1 24 18 A14 14 0 0 1 50 28 A8 8 0 0 1 42 40 H20 A10 10 0 0 1 14 34" fill="#64748b"/><g stroke="#3b82f6" stroke-width="2.5" stroke-linecap="round"><line x1="20" y1="46" x2="16" y2="58"><animate attributeName="y1" values="46;44;46" dur="0.6s" repeatCount="indefinite"/></line><line x1="32" y1="46" x2="28" y2="58"><animate attributeName="y1" values="46;44;46" dur="0.6s" begin="0.2s" repeatCount="indefinite"/></line><line x1="44" y1="46" x2="40" y2="58"><animate attributeName="y1" values="46;44;46" dur="0.6s" begin="0.4s" repeatCount="indefinite"/></line></g></svg>`,
+            heavyRain: `<svg viewBox="0 0 64 64" width="100%" height="100%"><path d="M12 32 A10 10 0 0 1 22 16 A14 14 0 0 1 48 26 A8 8 0 0 1 40 38 H18 A10 10 0 0 1 12 32" fill="#475569"/><g stroke="#2563eb" stroke-width="3" stroke-linecap="round"><line x1="14" y1="44" x2="10" y2="58"/><line x1="26" y1="44" x2="22" y2="58"/><line x1="38" y1="44" x2="34" y2="58"/><line x1="50" y1="44" x2="46" y2="58"/></g></svg>`,
+            snow: `<svg viewBox="0 0 64 64" width="100%" height="100%"><path d="M14 34 A10 10 0 0 1 24 18 A14 14 0 0 1 50 28 A8 8 0 0 1 42 40 H20 A10 10 0 0 1 14 34" fill="#cbd5e1"/><g fill="#fff"><circle cx="20" cy="52" r="3"><animate attributeName="cy" values="48;56;48" dur="2.5s" repeatCount="indefinite"/></circle><circle cx="32" cy="56" r="2.5"><animate attributeName="cy" values="52;60;52" dur="2.5s" begin="0.6s" repeatCount="indefinite"/></circle><circle cx="44" cy="50" r="3"><animate attributeName="cy" values="46;54;46" dur="2.5s" begin="1.2s" repeatCount="indefinite"/></circle></g></svg>`,
+            heavySnow: `<svg viewBox="0 0 64 64" width="100%" height="100%"><path d="M12 32 A10 10 0 0 1 22 16 A14 14 0 0 1 48 26 A8 8 0 0 1 40 38 H18 A10 10 0 0 1 12 32" fill="#94a3b8"/><g fill="#fff"><circle cx="12" cy="50" r="2.5"/><circle cx="24" cy="54" r="3"/><circle cx="36" cy="48" r="2.5"/><circle cx="48" cy="52" r="2"/><circle cx="20" cy="60" r="2"/><circle cx="40" cy="58" r="2.5"/></g></svg>`,
+            thunderstorm: `<svg viewBox="0 0 64 64" width="100%" height="100%"><path d="M12 30 A10 10 0 0 1 22 14 A14 14 0 0 1 48 24 A8 8 0 0 1 40 36 H18 A10 10 0 0 1 12 30" fill="#475569"/><path d="M34 38 L26 50 H34 L28 62" stroke="#fbbf24" stroke-width="3" fill="none" stroke-linejoin="round"><animate attributeName="opacity" values="1;0.2;1;0.2;1" dur="2s" repeatCount="indefinite"/></path><g stroke="#3b82f6" stroke-width="2" stroke-linecap="round" opacity="0.6"><line x1="16" y1="42" x2="12" y2="54"/><line x1="48" y1="42" x2="44" y2="54"/></g></svg>`
+        };
 
-        // --- APP LOGIC ---
+        // ==================== STATE MANAGEMENT ====================
+        const State = {
+            city: { ...CONFIG.defaultCity },
+            history: [],
+            timezone: 'Europe/Kyiv',
+            weatherData: null,
+            chart: null,
+            localTimeInterval: null,
 
-        async function init() {
-            const saved = localStorage.getItem('meteo_v3_state');
-            if (saved) state = JSON.parse(saved);
-            updateDate();
-            await fetchData();
-            
-            // Key binding for search
-            document.addEventListener('keydown', (e) => {
-                if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
-                    e.preventDefault();
-                    openSearchHub();
+            load() {
+                try {
+                    const savedState = localStorage.getItem(CONFIG.storageKeys.state);
+                    const savedHistory = localStorage.getItem(CONFIG.storageKeys.history);
+                    const savedTheme = localStorage.getItem(CONFIG.storageKeys.theme);
+                    
+                    if (savedState) this.city = JSON.parse(savedState);
+                    if (savedHistory) this.history = JSON.parse(savedHistory);
+                    if (savedTheme) document.body.className = savedTheme;
+                } catch (e) {
+                    console.warn('Failed to load state:', e);
                 }
-                if (e.key === 'Escape') closeSearchHub();
-            });
-        }
+            },
 
-        async function fetchData() {
-            try {
-                // Fetch Weather
-                const url = `https://api.open-meteo.com/v1/forecast?latitude=${state.lat}&longitude=${state.lon}&current=temperature_2m,apparent_temperature,is_day,weather_code,wind_speed_10m&hourly=temperature_2m,weather_code,precipitation,precipitation_probability,wind_speed_10m,wind_direction_10m,wind_gusts_10m,is_day&daily=temperature_2m_max,temperature_2m_min,weather_code,precipitation_sum,uv_index_max&timezone=auto&forecast_days=14`;
-                const res = await fetch(url);
-                const data = await res.json();
-                render(data);
-            } catch (e) { console.error("API Error", e); }
-        }
-
-        function render(data) {
-            const cur = data.current;
-            
-            document.getElementById('city-name').innerText = state.name;
-            document.getElementById('current-flag').src = `https://flagcdn.com/48x36/${state.code.toLowerCase()}.png`;
-            
-            document.getElementById('main-temp').innerText = Math.round(cur.temperature_2m) + "°";
-            document.getElementById('weather-desc').innerText = weatherDesc[cur.weather_code] || "Невідомо";
-            document.getElementById('main-icon').innerHTML = getIcon(cur.weather_code, cur.is_day);
-            
-            document.getElementById('feels-like').innerText = Math.round(cur.apparent_temperature) + "°";
-            document.getElementById('uv-index').innerText = data.daily.uv_index_max[0];
-            document.getElementById('wind-speed').innerText = (cur.wind_speed_10m / 3.6).toFixed(1);
-
-            renderTable(data.hourly);
-            renderChart(data.hourly);
-            renderCards(data.daily);
-            lucide.createIcons();
-        }
-
-        // --- RENDERERS ---
-        function renderTable(hourly) {
-            const tbody = document.getElementById('hourly-table-body');
-            tbody.innerHTML = `
-                <tr><th class="sticky left-0 bg-[#1a1d24] z-10">Час</th>${hourly.time.slice(0, 24).map(t => `<td class="text-gray-400 font-mono">${t.split('T')[1].slice(0, 5)}</td>`).join('')}</tr>
-                <tr><th class="sticky left-0 bg-[#1a1d24] z-10"></th>${hourly.weather_code.slice(0, 24).map((c, i) => `<td class="py-2"><div class="w-8 h-8 mx-auto">${getIcon(c, hourly.is_day[i])}</div></td>`).join('')}</tr>
-                <tr><th class="sticky left-0 bg-[#1a1d24] z-10">Темп</th>${hourly.temperature_2m.slice(0, 24).map(t => `<td class="font-bold text-lg ${t>0?'text-green-400':t<0?'text-blue-300':'text-white'}">${t>0?'+'+Math.round(t):Math.round(t)}°</td>`).join('')}</tr>
-                <tr><th class="sticky left-0 bg-[#1a1d24] z-10">Вітер</th>${hourly.wind_speed_10m.slice(0, 24).map((s, i) => `<td><div class="flex flex-col items-center"><i data-lucide="arrow-up" style="transform:rotate(${hourly.wind_direction_10m[i]}deg)" class="w-3 h-3 text-gray-500 mb-1"></i><span class="text-xs text-gray-300">${(s/3.6).toFixed(1)}</span></div></td>`).join('')}</tr>
-                <tr><th class="sticky left-0 bg-[#1a1d24] z-10">Опади</th>${hourly.precipitation.slice(0, 24).map(p => `<td>${p>0 ? `<span class="px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-400 text-xs font-bold">${p}</span>` : '<span class="text-gray-700">-</span>'}</td>`).join('')}</tr>
-            `;
-        }
-
-        function renderChart(hourly) {
-            const ctx = document.getElementById('tempChart').getContext('2d');
-            if (chartInstance) chartInstance.destroy();
-
-            chartInstance = new Chart(ctx, {
-                type: 'line',
-                data: {
-                    labels: hourly.time.slice(0, 24).map(t => t.split('T')[1].slice(0, 5)),
-                    datasets: [{
-                        data: hourly.temperature_2m.slice(0, 24),
-                        borderColor: '#3b82f6',
-                        backgroundColor: ctx.createLinearGradient(0, 0, 0, 300),
-                        borderWidth: 3,
-                        pointBackgroundColor: '#1a1d26',
-                        tension: 0.4,
-                        fill: true
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: { legend: { display: false } },
-                    scales: {
-                        x: { grid: { display: false }, ticks: { color: '#64748b' } },
-                        y: { display: false }
-                    }
+            save() {
+                try {
+                    localStorage.setItem(CONFIG.storageKeys.state, JSON.stringify(this.city));
+                    localStorage.setItem(CONFIG.storageKeys.history, JSON.stringify(this.history));
+                    localStorage.setItem(CONFIG.storageKeys.theme, document.body.className);
+                } catch (e) {
+                    console.warn('Failed to save state:', e);
                 }
-            });
-            // Fix gradient bug
-            chartInstance.data.datasets[0].backgroundColor.addColorStop(0, 'rgba(59, 130, 246, 0.3)');
-            chartInstance.data.datasets[0].backgroundColor.addColorStop(1, 'rgba(59, 130, 246, 0)');
-            chartInstance.update();
-        }
+            },
 
-        function renderCards(daily) {
-            const grid = document.getElementById('daily-grid');
-            grid.innerHTML = daily.time.map((t, i) => {
-                const date = new Date(t);
-                const dayName = i===0 ? 'Сьогодні' : date.toLocaleDateString('uk-UA', {weekday:'long'});
-                const rain = daily.precipitation_sum[i];
-                return `
-                    <div class="panel p-4 rounded-xl flex items-center justify-between hover:bg-[#2d3342] transition">
-                        <div class="flex flex-col w-28">
-                            <span class="font-bold text-gray-200 text-sm capitalize">${dayName}</span>
-                            <span class="text-xs text-gray-500">${date.toLocaleDateString('uk-UA', {day:'numeric', month:'short'})}</span>
-                        </div>
-                        <div class="w-10 h-10 flex items-center justify-center">${getIcon(daily.weather_code[i], 1)}</div>
-                        <div class="flex items-center gap-2 w-36 justify-end">
-                            ${rain > 0 ? `<div class="flex items-center gap-1 bg-blue-500/10 px-2 py-0.5 rounded-lg text-blue-400 text-xs font-bold"><i data-lucide="droplets" class="w-3 h-3"></i>${Math.round(rain)}мм</div>` : ''}
-                            <div class="text-right flex gap-2 font-mono text-sm"><span class="text-gray-500">${Math.round(daily.temperature_2m_min[i])}°</span><span class="text-white font-bold">${Math.round(daily.temperature_2m_max[i])}°</span></div>
-                        </div>
-                    </div>
-                `;
-            }).join('');
-        }
-
-        // --- SEARCH HUB LOGIC ---
-
-        function openSearchHub() {
-            document.getElementById('search-hub').classList.add('active');
-            document.getElementById('hub-input').focus();
-            filterCatalog('ukraine'); // Init with default catalog
-        }
-
-        function closeSearchHub() {
-            document.getElementById('search-hub').classList.remove('active');
-        }
-
-        function filterCatalog(category) {
-            // UI Update
-            document.querySelectorAll('#hub-categories button').forEach(b => {
-                b.classList.remove('bg-[#2d3342]', 'text-white');
-                b.classList.add('bg-[#1a1d24]', 'text-gray-400');
-            });
-            event.target.classList.remove('bg-[#1a1d24]', 'text-gray-400');
-            event.target.classList.add('bg-[#2d3342]', 'text-white');
-
-            // Render
-            document.getElementById('hub-status').innerText = "Популярні локації";
-            renderHubGrid(CATALOG[category].sort((a, b) => a.name.localeCompare(b.name, 'uk')));
-        }
-
-        function renderHubGrid(list) {
-            const grid = document.getElementById('hub-grid');
-            grid.innerHTML = list.map(city => `
-                <button onclick='selectCity(${JSON.stringify(city)})' class="flex items-center gap-4 p-4 rounded-xl bg-[#1a1d24] border border-[#2d3342] hover:border-blue-500 hover:bg-[#20242e] transition group text-left w-full">
-                    <img src="https://flagcdn.com/48x36/${city.code.toLowerCase()}.png" class="w-10 h-auto rounded shadow-sm opacity-80 group-hover:opacity-100 transition" alt="${city.code}">
-                    <div class="flex flex-col">
-                        <span class="text-lg font-bold text-gray-200 group-hover:text-white transition">${city.name}</span>
-                        <span class="text-xs text-gray-500 uppercase tracking-wider font-bold">Координати: ${city.lat.toFixed(1)}, ${city.lon.toFixed(1)}</span>
-                    </div>
-                    <i data-lucide="chevron-right" class="w-5 h-5 text-gray-600 ml-auto group-hover:text-blue-400 transition"></i>
-                </button>
-            `).join('');
-            lucide.createIcons();
-        }
-
-        async function handleHubSearch(val) {
-            const cats = document.getElementById('hub-categories');
-            const status = document.getElementById('hub-status');
-            
-            if (val.length < 2) {
-                cats.classList.remove('hidden'); // Show tabs back
-                status.innerText = "Популярні локації";
-                filterCatalog('ukraine'); // Reset to default
-                return;
+            addToHistory(city) {
+                this.history = this.history.filter(c => c.name !== city.name);
+                this.history.unshift(city);
+                if (this.history.length > 5) this.history.pop();
+                this.save();
             }
+        };
 
-            // Hide tabs while searching
-            cats.classList.add('hidden');
-            status.innerHTML = `<span class="animate-pulse">Пошук глобальною базою...</span>`;
-
-            clearTimeout(searchDebounce);
-            searchDebounce = setTimeout(async() => {
-                const res = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${val}&count=12&language=uk&format=json`);
-                const data = await res.json();
+        // ==================== API SERVICE ====================
+        const API = {
+            async fetchWeather() {
+                const { lat, lon } = State.city;
+                const params = new URLSearchParams({
+                    latitude: lat,
+                    longitude: lon,
+                    current: 'temperature_2m,apparent_temperature,is_day,weather_code,relative_humidity_2m,surface_pressure,wind_speed_10m,uv_index',
+                    hourly: 'temperature_2m,weather_code,is_day,precipitation_probability,uv_index',
+                    daily: 'temperature_2m_max,temperature_2m_min,weather_code,sunrise,sunset,daylight_duration,uv_index_max',
+                    timezone: 'auto',
+                    forecast_days: 14
+                });
                 
-                if (!data.results) {
-                    status.innerText = "Нічого не знайдено";
-                    document.getElementById('hub-grid').innerHTML = '';
+                const response = await fetch(`https://api.open-meteo.com/v1/forecast?${params}`);
+                if (!response.ok) throw new Error(`Weather API error: ${response.status}`);
+                
+                const data = await response.json();
+                State.timezone = data.timezone || 'Europe/Kyiv';
+                return data;
+            },
+
+            async fetchAirQuality() {
+                const { lat, lon } = State.city;
+                const params = new URLSearchParams({
+                    latitude: lat,
+                    longitude: lon,
+                    current: 'european_aqi,pm10,pm2_5,nitrogen_dioxide,ozone'
+                });
+                
+                const response = await fetch(`https://air-quality-api.open-meteo.com/v1/air-quality?${params}`);
+                if (!response.ok) throw new Error(`Air Quality API error: ${response.status}`);
+                return response.json();
+            },
+
+            async fetchPollen() {
+                const { lat, lon } = State.city;
+                const params = new URLSearchParams({
+                    latitude: lat,
+                    longitude: lon,
+                    current: 'alder_pollen,birch_pollen,grass_pollen,mugwort_pollen,olive_pollen,ragweed_pollen,dust'
+                });
+                
+                const response = await fetch(`https://air-quality-api.open-meteo.com/v1/air-quality?${params}`);
+                if (!response.ok) throw new Error(`Pollen API error: ${response.status}`);
+                return response.json();
+            },
+
+            async searchCities(query) {
+                const params = new URLSearchParams({
+                    name: query,
+                    count: 5,
+                    language: 'uk',
+                    format: 'json'
+                });
+                
+                const response = await fetch(`https://geocoding-api.open-meteo.com/v1/search?${params}`);
+                if (!response.ok) throw new Error(`Geocoding API error: ${response.status}`);
+                return response.json();
+            }
+        };
+
+        // ==================== UTILITY FUNCTIONS ====================
+        const Utils = {
+            escapeHtml(text) {
+                const div = document.createElement('div');
+                div.textContent = text || '';
+                return div.innerHTML;
+            },
+
+            getWeatherIcon(code, isDay = 1) {
+                if (code === 0) return isDay ? ICONS.clearDay : ICONS.clearNight;
+                if (code <= 2) return isDay ? ICONS.partlyCloudyDay : ICONS.partlyCloudyNight;
+                if (code === 3) return ICONS.overcast;
+                if (code === 45 || code === 48) return ICONS.fog;
+                if (code >= 51 && code <= 57) return ICONS.drizzle;
+                if (code >= 61 && code <= 67) return code >= 65 ? ICONS.heavyRain : ICONS.rain;
+                if (code >= 71 && code <= 77) return code >= 75 ? ICONS.heavySnow : ICONS.snow;
+                if (code >= 80 && code <= 82) return code === 82 ? ICONS.heavyRain : ICONS.rain;
+                if (code >= 85 && code <= 86) return code === 86 ? ICONS.heavySnow : ICONS.snow;
+                if (code >= 95) return ICONS.thunderstorm;
+                return ICONS.cloudy;
+            },
+
+            getMoonPhase() {
+                const now = new Date();
+                const knownNewMoon = new Date(2000, 0, 6, 18, 14, 0);
+                const lunarCycle = 29.53058867;
+                const daysSince = (now - knownNewMoon) / (1000 * 60 * 60 * 24);
+                const moonAge = ((daysSince % lunarCycle) + lunarCycle) % lunarCycle;
+                const phase = moonAge / lunarCycle;
+                const illumination = Math.round((1 - Math.cos(phase * 2 * Math.PI)) / 2 * 100);
+                const phaseIndex = Math.floor(phase * 8) % 8;
+
+                return {
+                    name: CONFIG.moonPhases[phaseIndex].name,
+                    emoji: CONFIG.moonPhases[phaseIndex].emoji,
+                    illumination,
+                    age: Math.floor(moonAge),
+                    phase
+                };
+            },
+
+            getUVLevel(uv) {
+                return CONFIG.uvLevels.find(level => uv <= level.max) || CONFIG.uvLevels[CONFIG.uvLevels.length - 1];
+            },
+
+            getAQILevel(aqi) {
+                return CONFIG.aqiLevels.find(level => aqi <= level.max) || CONFIG.aqiLevels[CONFIG.aqiLevels.length - 1];
+            },
+
+            getPollenLevel(value) {
+                if (!value || value < 10) return { text: 'Низький', class: 'text-green-400' };
+                if (value < 30) return { text: 'Помірний', class: 'text-yellow-400' };
+                if (value < 60) return { text: 'Високий', class: 'text-orange-400' };
+                return { text: 'Дуже високий', class: 'text-red-400' };
+            },
+
+            formatTime(date, timezone) {
+                try {
+                    return new Date(date).toLocaleTimeString('uk-UA', {
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        timeZone: timezone || State.timezone
+                    });
+                } catch {
+                    return new Date(date).toLocaleTimeString('uk-UA', { hour: '2-digit', minute: '2-digit' });
+                }
+            },
+
+            formatDate(date, options = {}) {
+                const defaultOptions = { day: 'numeric', month: 'short' };
+                return new Date(date).toLocaleDateString('uk-UA', { ...defaultOptions, ...options });
+            },
+
+            debounce(func, wait) {
+                let timeout;
+                return function executedFunction(...args) {
+                    const later = () => {
+                        clearTimeout(timeout);
+                        func(...args);
+                    };
+                    clearTimeout(timeout);
+                    timeout = setTimeout(later, wait);
+                };
+            }
+        };
+
+        // ==================== UI RENDERER ====================
+        const UI = {
+            elements: {},
+
+            cacheElements() {
+                const ids = [
+                    'city-name', 'flag', 'date-display', 'main-icon', 'main-temp', 'weather-desc',
+                    'feels-like', 'humidity', 'wind', 'pressure', 'sunrise', 'sunset',
+                    'uv-value', 'uv-marker', 'uv-text',
+                    'aqi-value', 'aqi-status', 'aqi-desc', 'aqi-glow',
+                    'pol-pm25', 'pol-pm10', 'pol-no2', 'pol-o3',
+                    'pm25-bar', 'pm10-bar', 'no2-bar', 'o3-bar',
+                    'health-recommendations', 'allergy-tips', 'pollen-date',
+                    'local-time', 'timezone-name', 'day-night-status',
+                    'astro-title', 'astro-gradient', 'astro-start', 'astro-end',
+                    'arc-progress', 'arc-duration', 'arc-traveled',
+                    'celestial-body', 'celestial-glow', 'start-label', 'end-label',
+                    'arc-color-start', 'arc-color-mid', 'arc-color-end',
+                    'moon-phase-name', 'moon-illumination', 'moon-age', 'moon-shadow-el',
+                    'daily-grid', 'weatherChart', 'search-modal', 'search-input', 'search-results'
+                ];
+
+                ids.forEach(id => {
+                    this.elements[id] = document.getElementById(id);
+                });
+            },
+
+            $(id) {
+                return this.elements[id] || document.getElementById(id);
+            },
+
+            updateDate() {
+                const date = new Date().toLocaleDateString('uk-UA', {
+                    weekday: 'long',
+                    day: 'numeric',
+                    month: 'long'
+                });
+                this.$('date-display').textContent = date.charAt(0).toUpperCase() + date.slice(1);
+            },
+
+            renderSidebar(data) {
+                const { current, daily } = data;
+
+                // City info
+                this.$('city-name').textContent = State.city.name;
+                const flag = this.$('flag');
+                flag.src = `https://flagcdn.com/48x36/${State.city.code.toLowerCase()}.png`;
+                flag.onerror = () => flag.style.display = 'none';
+                flag.onload = () => flag.style.display = '';
+
+                // Main weather
+                this.$('main-icon').innerHTML = Utils.getWeatherIcon(current.weather_code, current.is_day);
+                this.$('main-temp').textContent = `${Math.round(current.temperature_2m)}°`;
+                this.$('weather-desc').textContent = CONFIG.weatherDescriptions[current.weather_code] || 'Невідомо';
+
+                // Stats
+                this.$('feels-like').textContent = `${Math.round(current.apparent_temperature)}°`;
+                this.$('humidity').textContent = `${current.relative_humidity_2m}%`;
+                this.$('wind').textContent = `${(current.wind_speed_10m / 3.6).toFixed(1)} м/с`;
+                this.$('pressure').textContent = `${Math.round(current.surface_pressure)} гПа`;
+
+                // Sun times
+                this.$('sunrise').textContent = Utils.formatTime(daily.sunrise[0]);
+                this.$('sunset').textContent = Utils.formatTime(daily.sunset[0]);
+
+                // UV Index
+                this.renderUV(current.uv_index);
+            },
+
+            renderUV(uvIndex) {
+                const uv = Math.round(uvIndex || 0);
+                const level = Utils.getUVLevel(uv);
+
+                this.$('uv-value').textContent = uv;
+                this.$('uv-value').className = `text-sm font-bold ${level.color}`;
+                this.$('uv-text').textContent = `${level.text} — ${level.advice}`;
+                this.$('uv-text').className = `text-[10px] text-center mt-2 ${level.color}`;
+
+                const percent = Math.min((uv / 11) * 100, 100);
+                this.$('uv-marker').style.left = `calc(${percent}% - 6px)`;
+            },
+
+            renderChart(hourly) {
+                const ctx = this.$('weatherChart')?.getContext('2d');
+                if (!ctx) return;
+
+                if (State.chart) State.chart.destroy();
+
+                const isDark = document.body.classList.contains('dark');
+                const gradient = ctx.createLinearGradient(0, 0, 0, 300);
+                gradient.addColorStop(0, 'rgba(59, 130, 246, 0.5)');
+                gradient.addColorStop(1, 'rgba(59, 130, 246, 0)');
+
+                State.chart = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: hourly.time.slice(0, 24).map(t => t.split('T')[1].slice(0, 5)),
+                        datasets: [
+                            {
+                                type: 'line',
+                                label: 'Температура',
+                                data: hourly.temperature_2m.slice(0, 24),
+                                borderColor: '#3b82f6',
+                                backgroundColor: gradient,
+                                borderWidth: 3,
+                                fill: true,
+                                tension: 0.4,
+                                pointBackgroundColor: isDark ? '#fff' : '#1e293b',
+                                pointBorderColor: '#3b82f6',
+                                pointRadius: 4,
+                                pointHoverRadius: 6,
+                                datalabels: {
+                                    color: isDark ? '#fff' : '#1e293b',
+                                    align: 'top',
+                                    offset: 4,
+                                    font: { weight: 'bold', size: 10 },
+                                    formatter: val => `${Math.round(val)}°`
+                                }
+                            },
+                            {
+                                type: 'bar',
+                                label: 'Опади',
+                                data: hourly.precipitation_probability.slice(0, 24),
+                                backgroundColor: 'rgba(30, 58, 138, 0.4)',
+                                borderRadius: 4,
+                                barThickness: 8,
+                                yAxisID: 'y1',
+                                datalabels: { display: false }
+                            }
+                        ]
+                    },
+                    plugins: [ChartDataLabels],
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        interaction: { intersect: false, mode: 'index' },
+                        layout: { padding: { top: 25 } },
+                        plugins: {
+                            legend: { display: false },
+                            tooltip: { enabled: true }
+                        },
+                        scales: {
+                            x: {
+                                grid: { display: false },
+                                ticks: { color: '#64748b', maxRotation: 0 }
+                            },
+                            y: { display: false },
+                            y1: { display: false, min: 0, max: 100 }
+                        }
+                    }
+                });
+            },
+
+            renderDaily(daily) {
+                const grid = this.$('daily-grid');
+                if (!grid) return;
+
+                grid.innerHTML = daily.time.map((time, i) => {
+                    const date = new Date(time);
+                    const code = daily.weather_code[i];
+                    const icon = Utils.getWeatherIcon(code, 1);
+                    const dayName = i === 0 ? 'Сьогодні' : date.toLocaleDateString('uk-UA', { weekday: 'long' });
+                    const dateStr = Utils.formatDate(time);
+                    const desc = CONFIG.weatherDescriptions[code] || '';
+                    const uvMax = Math.round(daily.uv_index_max?.[i] || 0);
+                    const uvLevel = Utils.getUVLevel(uvMax);
+
+                    return `
+                        <article class="glass p-4 rounded-xl flex items-center justify-between hover:scale-[1.02] transition-transform duration-200 cursor-default">
+                            <div class="flex flex-col min-w-0">
+                                <span class="font-bold text-primary text-base capitalize truncate">${dayName}</span>
+                                <span class="text-xs text-secondary font-medium uppercase">${dateStr}</span>
+                                <span class="text-[10px] text-blue-400 mt-1 truncate">${desc}</span>
+                                <span class="text-[10px] ${uvLevel.color}">UV: ${uvMax}</span>
+                            </div>
+                            <div class="w-12 h-12 flex-shrink-0 mx-2">${icon}</div>
+                            <div class="text-right flex-shrink-0">
+                                <span class="text-primary font-bold text-lg block">${Math.round(daily.temperature_2m_max[i])}°</span>
+                                <span class="text-secondary text-xs font-medium">${Math.round(daily.temperature_2m_min[i])}°</span>
+                            </div>
+                        </article>
+                    `;
+                }).join('');
+            },
+
+            renderAQI(data) {
+                const aqi = Math.round(data.current?.european_aqi || 0);
+                const level = Utils.getAQILevel(aqi);
+                const current = data.current || {};
+
+                this.$('aqi-value').textContent = aqi;
+                
+                const statusEl = this.$('aqi-status');
+                statusEl.textContent = level.status;
+                statusEl.className = `text-xl md:text-2xl font-bold px-6 py-2 rounded-full border backdrop-blur-md mb-4 ${level.color} ${level.border}`;
+
+                this.$('aqi-desc').textContent = level.desc;
+                this.$('aqi-glow').className = `absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-80 h-80 blur-[100px] rounded-full pointer-events-none transition-colors duration-500 ${level.bg}`;
+
+                // Pollutants
+                const pm25 = current.pm2_5 || 0;
+                const pm10 = current.pm10 || 0;
+                const no2 = current.nitrogen_dioxide || 0;
+                const o3 = current.ozone || 0;
+
+                this.$('pol-pm25').textContent = pm25.toFixed(1);
+                this.$('pol-pm10').textContent = pm10.toFixed(1);
+                this.$('pol-no2').textContent = no2.toFixed(1);
+                this.$('pol-o3').textContent = o3.toFixed(1);
+
+                this.$('pm25-bar').style.width = `${Math.min(pm25 / 50 * 100, 100)}%`;
+                this.$('pm10-bar').style.width = `${Math.min(pm10 / 100 * 100, 100)}%`;
+                this.$('no2-bar').style.width = `${Math.min(no2 / 100 * 100, 100)}%`;
+                this.$('o3-bar').style.width = `${Math.min(o3 / 150 * 100, 100)}%`;
+
+                this.renderHealthRecommendations(aqi);
+            },
+
+            renderHealthRecommendations(aqi) {
+                const container = this.$('health-recommendations');
+                if (!container) return;
+
+                let recommendations;
+                if (aqi <= 20) {
+                    recommendations = [
+                        { icon: '🏃', title: 'Спорт', text: 'Ідеально для активностей на свіжому повітрі' },
+                        { icon: '👶', title: 'Діти', text: 'Можуть гратися надворі без обмежень' },
+                        { icon: '🪟', title: 'Вікна', text: 'Провітрюйте приміщення' }
+                    ];
+                } else if (aqi <= 40) {
+                    recommendations = [
+                        { icon: '🏃', title: 'Спорт', text: 'Можна займатися на вулиці' },
+                        { icon: '👴', title: 'Чутливі групи', text: 'Без особливих застережень' },
+                        { icon: '🪟', title: 'Вікна', text: 'Можна провітрювати' }
+                    ];
+                } else if (aqi <= 60) {
+                    recommendations = [
+                        { icon: '🚶', title: 'Активність', text: 'Скоротіть інтенсивні тренування' },
+                        { icon: '😷', title: 'Астматики', text: 'Тримайте інгалятор під рукою' },
+                        { icon: '🕐', title: 'Час', text: 'Гуляйте вранці або ввечері' }
+                    ];
+                } else if (aqi <= 80) {
+                    recommendations = [
+                        { icon: '🏠', title: 'Спорт', text: 'Займайтеся в приміщенні' },
+                        { icon: '😷', title: 'Захист', text: 'Використовуйте маску N95' },
+                        { icon: '🚫', title: 'Вікна', text: 'Тримайте закритими' }
+                    ];
+                } else {
+                    recommendations = [
+                        { icon: '⛔', title: 'Вулиця', text: 'Уникайте виходу надвір' },
+                        { icon: '🏥', title: 'Здоров\'я', text: 'При симптомах — до лікаря' },
+                        { icon: '💨', title: 'Очищувач', text: 'Увімкніть очищувач повітря' }
+                    ];
+                }
+
+                container.innerHTML = recommendations.map(r => `
+                    <div class="flex items-start gap-3 p-4 rounded-xl bg-white/5">
+                        <span class="text-2xl">${r.icon}</span>
+                        <div>
+                            <h5 class="font-bold text-primary text-sm">${r.title}</h5>
+                            <p class="text-xs text-secondary">${r.text}</p>
+                        </div>
+                    </div>
+                `).join('');
+            },
+
+            renderPollen(data) {
+                const current = data.current || {};
+
+                this.$('pollen-date').textContent = new Date().toLocaleDateString('uk-UA', {
+                    day: 'numeric',
+                    month: 'long',
+                    year: 'numeric'
+                });
+
+                const pollenMap = {
+                    'pollen-alder': current.alder_pollen,
+                    'pollen-birch': current.birch_pollen,
+                    'pollen-grass': current.grass_pollen,
+                    'pollen-ragweed': current.ragweed_pollen,
+                    'pollen-mugwort': current.mugwort_pollen,
+                    'pollen-olive': current.olive_pollen,
+                    'pollen-dust': current.dust,
+                    'pollen-oak': null
+                };
+
+                let maxPollen = 0;
+
+                Object.entries(pollenMap).forEach(([id, value]) => {
+                    const el = this.$(id);
+                    if (el) {
+                        const level = Utils.getPollenLevel(value);
+                        el.textContent = value ? Math.round(value) : '—';
+                        el.className = `font-bold ${level.class}`;
+                        if (value > maxPollen) maxPollen = value;
+                    }
+                });
+
+                this.renderAllergyTips(maxPollen);
+            },
+
+            renderAllergyTips(maxPollen) {
+                const container = this.$('allergy-tips');
+                if (!container) return;
+
+                let tips;
+                if (maxPollen < 10) {
+                    tips = [
+                        '✅ Низький рівень пилку — чудовий день для прогулянок',
+                        '🪟 Сміливо провітрюйте приміщення',
+                        '🏃 Заняття спортом на вулиці безпечні',
+                        '😊 Алергічні реакції малоймовірні'
+                    ];
+                } else if (maxPollen < 30) {
+                    tips = [
+                        '⚠️ Помірний рівень — будьте уважні до симптомів',
+                        '💊 Тримайте антигістамінні під рукою',
+                        '🕐 Краще гуляти вранці або після дощу',
+                        '👓 Носіть сонцезахисні окуляри'
+                    ];
+                } else if (maxPollen < 60) {
+                    tips = [
+                        '🔴 Високий рівень — обмежте час надворі',
+                        '💊 Приймайте ліки профілактично',
+                        '🚿 Мийте волосся перед сном',
+                        '🚗 Тримайте вікна в авто закритими'
+                    ];
+                } else {
+                    tips = [
+                        '⛔ Дуже високий рівень — залишайтеся вдома',
+                        '💨 Використовуйте очищувач повітря з HEPA',
+                        '💊 Зверніться до алерголога',
+                        '👕 Змінюйте одяг після виходу на вулицю'
+                    ];
+                }
+
+                container.innerHTML = tips.map(tip => `
+                    <div class="p-3 rounded-lg bg-white/5 text-sm text-secondary">${tip}</div>
+                `).join('');
+            },
+
+            startLocalTime() {
+                if (State.localTimeInterval) clearInterval(State.localTimeInterval);
+
+                const update = () => {
+                    try {
+                        const now = new Date();
+                        this.$('local-time').textContent = now.toLocaleTimeString('uk-UA', {
+                            timeZone: State.timezone,
+                            hour: '2-digit',
+                            minute: '2-digit',
+                            second: '2-digit'
+                        });
+                        this.$('timezone-name').textContent = State.timezone.replace(/_/g, ' ').split('/').pop();
+                    } catch {
+                        this.$('local-time').textContent = new Date().toLocaleTimeString('uk-UA');
+                    }
+                };
+
+                update();
+                State.localTimeInterval = setInterval(update, 1000);
+            },
+
+            renderCelestialArc(sunrise, sunset) {
+                const now = new Date();
+                let localNow;
+                
+                try {
+                    localNow = new Date(now.toLocaleString('en-US', { timeZone: State.timezone }));
+                } catch {
+                    localNow = now;
+                }
+
+                const sunriseTime = new Date(sunrise);
+                const sunsetTime = new Date(sunset);
+                const isDay = localNow >= sunriseTime && localNow <= sunsetTime;
+
+                const body = this.$('celestial-body');
+                const glow = this.$('celestial-glow');
+                const arcPath = this.$('arc-traveled');
+                const gradient = this.$('astro-gradient');
+                const title = this.$('astro-title');
+                const statusEl = this.$('day-night-status');
+                const arcStart = this.$('arc-color-start');
+                const arcMid = this.$('arc-color-mid');
+                const arcEnd = this.$('arc-color-end');
+
+                if (isDay) {
+                    // Day mode
+                    title.innerHTML = '☀️ Сонце';
+                    this.$('start-label').textContent = 'Схід';
+                    this.$('end-label').textContent = 'Захід';
+                    statusEl.textContent = '☀️ День';
+                    statusEl.className = 'text-lg font-bold text-yellow-400';
+                    gradient.className = 'absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-orange-500/10 to-transparent transition-all duration-500';
+
+                    body.setAttribute('fill', '#fbbf24');
+                    glow.setAttribute('fill', 'rgba(251,191,36,0.2)');
+                    arcStart.style.stopColor = '#f97316';
+                    arcMid.style.stopColor = '#fbbf24';
+                    arcEnd.style.stopColor = '#f97316';
+
+                    const duration = sunsetTime - sunriseTime;
+                    const elapsed = localNow - sunriseTime;
+                    const progress = Math.max(0, Math.min(elapsed / duration, 1));
+
+                    const x = 10 + progress * 180;
+                    const y = 95 - Math.sin(progress * Math.PI) * 110;
+
+                    body.setAttribute('cx', x);
+                    body.setAttribute('cy', Math.max(y, 8));
+                    glow.setAttribute('cx', x);
+                    glow.setAttribute('cy', Math.max(y, 8));
+
+                    arcPath.style.strokeDasharray = `${180 * progress}, 300`;
+
+                    this.$('astro-start').textContent = Utils.formatTime(sunrise);
+                    this.$('astro-start').className = 'text-lg font-bold text-orange-400';
+                    this.$('astro-end').textContent = Utils.formatTime(sunset);
+                    this.$('astro-end').className = 'text-lg font-bold text-purple-400';
+                    this.$('arc-progress').textContent = `${Math.round(progress * 100)}%`;
+                    this.$('arc-progress').className = 'text-xl font-bold text-yellow-400';
+                    this.$('arc-duration').textContent = `${(duration / 3600000).toFixed(1)} год`;
+
+                } else {
+                    // Night mode
+                    title.innerHTML = '🌙 Ніч';
+                    this.$('start-label').textContent = 'Захід';
+                    this.$('end-label').textContent = 'Схід';
+                    statusEl.textContent = '🌙 Ніч';
+                    statusEl.className = 'text-lg font-bold text-blue-400';
+                    gradient.className = 'absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-indigo-900/20 to-transparent transition-all duration-500';
+
+                    body.setAttribute('fill', '#cbd5e1');
+                    glow.setAttribute('fill', 'rgba(203,213,225,0.15)');
+                    arcStart.style.stopColor = '#6366f1';
+                    arcMid.style.stopColor = '#a5b4fc';
+                    arcEnd.style.stopColor = '#6366f1';
+
+                    let nightStart, nightEnd;
+                    if (localNow < sunriseTime) {
+                        nightStart = new Date(sunsetTime);
+                        nightStart.setDate(nightStart.getDate() - 1);
+                        nightEnd = sunriseTime;
+                    } else {
+                        nightStart = sunsetTime;
+                        nightEnd = new Date(sunriseTime);
+                        nightEnd.setDate(nightEnd.getDate() + 1);
+                    }
+
+                    const duration = nightEnd - nightStart;
+                    const elapsed = localNow - nightStart;
+                    const progress = Math.max(0, Math.min(elapsed / duration, 1));
+
+                    const x = 10 + progress * 180;
+                    const y = 95 - Math.sin(progress * Math.PI) * 110;
+
+                    body.setAttribute('cx', x);
+                    body.setAttribute('cy', Math.max(y, 8));
+                    glow.setAttribute('cx', x);
+                    glow.setAttribute('cy', Math.max(y, 8));
+
+                    arcPath.style.strokeDasharray = `${180 * progress}, 300`;
+
+                    this.$('astro-start').textContent = Utils.formatTime(nightStart);
+                    this.$('astro-start').className = 'text-lg font-bold text-purple-400';
+                    this.$('astro-end').textContent = Utils.formatTime(nightEnd);
+                    this.$('astro-end').className = 'text-lg font-bold text-orange-400';
+                    this.$('arc-progress').textContent = `${Math.round(progress * 100)}%`;
+                    this.$('arc-progress').className = 'text-xl font-bold text-blue-400';
+                    this.$('arc-duration').textContent = `${(duration / 3600000).toFixed(1)} год`;
+                }
+            },
+
+            renderMoon() {
+                const moon = Utils.getMoonPhase();
+                const shadow = this.$('moon-shadow-el');
+                const { phase } = moon;
+
+                let shadowWidth, shadowLeft;
+                if (phase < 0.25) {
+                    shadowWidth = 100 - (phase / 0.25) * 100;
+                    shadowLeft = 100 - shadowWidth;
+                    shadow.style.borderRadius = '0 50% 50% 0';
+                } else if (phase < 0.5) {
+                    shadowWidth = 100 - ((phase - 0.25) / 0.25) * 100;
+                    shadowLeft = 0;
+                    shadow.style.borderRadius = '50% 0 0 50%';
+                } else if (phase < 0.75) {
+                    shadowWidth = ((phase - 0.5) / 0.25) * 100;
+                    shadowLeft = 100 - shadowWidth;
+                    shadow.style.borderRadius = '0 50% 50% 0';
+                } else {
+                    shadowWidth = ((phase - 0.75) / 0.25) * 100;
+                    shadowLeft = 0;
+                    shadow.style.borderRadius = '50% 0 0 50%';
+                }
+
+                shadow.style.width = `${shadowWidth}%`;
+                shadow.style.left = `${shadowLeft}%`;
+
+                this.$('moon-phase-name').textContent = `${moon.emoji} ${moon.name}`;
+                this.$('moon-illumination').textContent = `Освітленість: ${moon.illumination}%`;
+                this.$('moon-age').textContent = `День циклу: ${moon.age + 1} з 30`;
+            },
+
+            renderSearchResults(results, isHistory = false) {
+                const container = this.$('search-results');
+                if (!container) return;
+
+                if (!results || results.length === 0) {
+                    container.innerHTML = `
+                        <div class="text-center text-secondary py-8">
+                            ${isHistory ? 'Історія пошуку порожня' : 'Нічого не знайдено'}
+                        </div>
+                    `;
                     return;
                 }
 
-                status.innerText = `Результати пошуку: ${data.results.length}`;
+                container.innerHTML = results.map(city => {
+                    const cityData = encodeURIComponent(JSON.stringify({
+                        name: city.name,
+                        code: (city.country_code || city.code || 'un').toLowerCase(),
+                        lat: city.latitude || city.lat,
+                        lon: city.longitude || city.lon
+                    }));
+
+                    return `
+                        <button 
+                            data-city="${cityData}" 
+                            class="search-result flex items-center gap-3 p-4 rounded-xl bg-input border border-subtle hover:border-blue-500/50 transition w-full text-left"
+                        >
+                            <img 
+                                src="https://flagcdn.com/24x18/${(city.country_code || city.code || 'un').toLowerCase()}.png" 
+                                class="rounded w-6 h-4 object-cover" 
+                                alt=""
+                                onerror="this.style.display='none'"
+                            >
+                            <span class="font-bold text-primary">${Utils.escapeHtml(city.name)}</span>
+                            <span class="text-xs text-secondary ml-auto">${Utils.escapeHtml(city.admin1 || city.country || '')}</span>
+                        </button>
+                    `;
+                }).join('');
+
+                // Add click handlers
+                container.querySelectorAll('.search-result').forEach(btn => {
+                    btn.addEventListener('click', () => {
+                        const cityData = JSON.parse(decodeURIComponent(btn.dataset.city));
+                        App.selectCity(cityData);
+                    });
+                });
+            }
+        };
+
+        // ==================== MAIN APPLICATION ====================
+        const App = {
+            searchDebounce: null,
+
+            async init() {
+                State.load();
+                UI.cacheElements();
+                UI.updateDate();
                 
-                // Map API results to our format
-                const formatted = data.results.map(item => ({
-                    name: item.name,
-                    code: item.country_code.toLowerCase(),
-                    lat: item.latitude,
-                    lon: item.longitude
-                }));
+                this.bindEvents();
+                await this.loadAllData();
+                
+                // Update celestial arc every minute
+                setInterval(() => {
+                    if (State.weatherData) {
+                        UI.renderCelestialArc(
+                            State.weatherData.daily.sunrise[0],
+                            State.weatherData.daily.sunset[0]
+                        );
+                    }
+                }, 60000);
 
-                renderHubGrid(formatted);
-            }, 300);
-        }
+                // Initialize Lucide icons
+                if (typeof lucide !== 'undefined') {
+                    lucide.createIcons();
+                }
+            },
 
-        function selectCity(city) {
-            state = city;
-            localStorage.setItem('meteo_v3_state', JSON.stringify(state));
-            closeSearchHub();
-            fetchData();
-        }
-        
-        function locateUser() {
-             if(!navigator.geolocation) return alert('Geoloc not supported');
-             navigator.geolocation.getCurrentPosition(async (pos) => {
-                 const res = await fetch(`https://geocoding-api.open-meteo.com/v1/get?latitude=${pos.coords.latitude}&longitude=${pos.coords.longitude}&language=uk`);
-                 const d = await res.json();
-                 selectCity({name: d.name, code: d.country_code.toLowerCase(), lat: pos.coords.latitude, lon: pos.coords.longitude});
-             });
-        }
+            bindEvents() {
+                // Search button
+                document.getElementById('btn-search')?.addEventListener('click', () => this.openSearch());
+                
+                // Theme toggle
+                document.getElementById('btn-theme')?.addEventListener('click', () => this.toggleTheme());
+                
+                // Locate button
+                document.getElementById('btn-locate')?.addEventListener('click', () => this.locateUser());
+                
+                // Close search
+                document.getElementById('btn-close-search')?.addEventListener('click', () => this.closeSearch());
+                document.getElementById('search-backdrop')?.addEventListener('click', () => this.closeSearch());
+                
+                // Search input
+                const searchInput = document.getElementById('search-input');
+                searchInput?.addEventListener('input', (e) => this.handleSearchInput(e.target.value));
+                searchInput?.addEventListener('keydown', (e) => {
+                    if (e.key === 'Escape') this.closeSearch();
+                });
 
-        function updateDate() {
-            const d = new Date();
-            const s = d.toLocaleDateString('uk-UA', {weekday:'long', day:'numeric', month:'long'});
-            document.getElementById('date-display').innerText = s.charAt(0).toUpperCase() + s.slice(1);
-        }
+                // Tab buttons
+                document.querySelectorAll('[data-tab]').forEach(btn => {
+                    btn.addEventListener('click', () => this.switchTab(btn.dataset.tab));
+                });
 
-        init();
+                // Keyboard shortcuts
+                document.addEventListener('keydown', (e) => {
+                    if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+                        e.preventDefault();
+                        this.openSearch();
+                    }
+                    if (e.key === 'Escape') this.closeSearch();
+                });
+            },
+
+            async loadAllData() {
+                try {
+                    const weather = await API.fetchWeather();
+                    State.weatherData = weather;
+
+                    UI.renderSidebar(weather);
+                    UI.renderChart(weather.hourly);
+                    UI.renderDaily(weather.daily);
+                    UI.startLocalTime();
+                    UI.renderCelestialArc(weather.daily.sunrise[0], weather.daily.sunset[0]);
+                    UI.renderMoon();
+
+                    const aqi = await API.fetchAirQuality();
+                    UI.renderAQI(aqi);
+
+                    const pollen = await API.fetchPollen();
+                    UI.renderPollen(pollen);
+
+                    if (typeof lucide !== 'undefined') {
+                        lucide.createIcons();
+                    }
+                } catch (error) {
+                    console.error('Failed to load data:', error);
+                }
+            },
+
+            toggleTheme() {
+                const body = document.body;
+                const isDark = body.classList.contains('dark');
+                
+                body.classList.remove('dark', 'light');
+                body.classList.add(isDark ? 'light' : 'dark');
+                State.save();
+
+                // Redraw chart with new colors
+                if (State.weatherData) {
+                    UI.renderChart(State.weatherData.hourly);
+                }
+
+                if (typeof lucide !== 'undefined') {
+                    lucide.createIcons();
+                }
+            },
+
+            switchTab(tabId) {
+                document.querySelectorAll('[data-tab]').forEach(btn => {
+                    const isActive = btn.dataset.tab === tabId;
+                    btn.classList.toggle('active', isActive);
+                });
+
+                document.querySelectorAll('.tab-content').forEach(content => {
+                    content.classList.remove('active');
+                });
+
+                document.getElementById(`tab-${tabId}`)?.classList.add('active');
+            },
+
+            openSearch() {
+                UI.$('search-modal')?.classList.add('active');
+                UI.$('search-input')?.focus();
+                UI.renderSearchResults(State.history, true);
+            },
+
+            closeSearch() {
+                UI.$('search-modal')?.classList.remove('active');
+                const input = UI.$('search-input');
+                if (input) input.value = '';
+            },
+
+            handleSearchInput(query) {
+                if (query.length < 2) {
+                    UI.renderSearchResults(State.history, true);
+                    return;
+                }
+
+                clearTimeout(this.searchDebounce);
+                this.searchDebounce = setTimeout(async () => {
+                    try {
+                        const data = await API.searchCities(query);
+                        UI.renderSearchResults(data.results || []);
+                    } catch (error) {
+                        console.error('Search error:', error);
+                        UI.renderSearchResults([]);
+                    }
+                }, 300);
+            },
+
+            selectCity(city) {
+                State.city = city;
+                State.addToHistory(city);
+                this.closeSearch();
+                this.loadAllData();
+            },
+
+            locateUser() {
+                if (!navigator.geolocation) {
+                    alert('Геолокація не підтримується вашим браузером');
+                    return;
+                }
+
+                navigator.geolocation.getCurrentPosition(
+                    async (position) => {
+                        const { latitude, longitude } = position.coords;
+                        
+                        try {
+                            const data = await API.searchCities(`${latitude.toFixed(2)},${longitude.toFixed(2)}`);
+                            
+                            if (data.results?.length > 0) {
+                                const result = data.results[0];
+                                this.selectCity({
+                                    name: result.name,
+                                    code: (result.country_code || 'un').toLowerCase(),
+                                    lat: latitude,
+                                    lon: longitude
+                                });
+                            } else {
+                                this.selectCity({
+                                    name: `${latitude.toFixed(2)}, ${longitude.toFixed(2)}`,
+                                    code: 'un',
+                                    lat: latitude,
+                                    lon: longitude
+                                });
+                            }
+                        } catch {
+                            this.selectCity({
+                                name: `${latitude.toFixed(2)}, ${longitude.toFixed(2)}`,
+                                code: 'un',
+                                lat: latitude,
+                                lon: longitude
+                            });
+                        }
+                    },
+                    (error) => {
+                        const messages = {
+                            1: 'Доступ до геолокації заборонено',
+                            2: 'Не вдалося визначити місцезнаходження',
+                            3: 'Час очікування вичерпано'
+                        };
+                        alert(messages[error.code] || 'Помилка геолокації');
+                    },
+                    { enableHighAccuracy: true, timeout: 10000 }
+                );
+            }
+        };
+
+        // ==================== INITIALIZATION ====================
+        document.addEventListener('DOMContentLoaded', () => App.init());
+
+    })();
     </script>
 </body>
 </html>
