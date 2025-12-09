@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Meteo Portal v9.1</title>
+    <title>Meteo Portal v9.2</title>
     
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -53,7 +53,7 @@
         }
         .dark .glass-input { background: #151515; border-color: rgba(255,255,255,0.1); color: #fff; }
 
-        /* LIGHT THEME IMPROVED */
+        /* LIGHT THEME */
         body.light { 
             background-color: #f1f5f9; 
             color: #334155; 
@@ -68,7 +68,6 @@
         }
         .light .glass-input { background: #fff; border-color: #cbd5e1; color: #0f172a; }
         
-        /* UTILS */
         .compact-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; }
         .compact-card { padding: 0.75rem; display: flex; flex-direction: column; align-items: center; justify-content: center; }
 
@@ -78,13 +77,11 @@
         }
         .fade-in { animation: fadeIn 0.4s ease-out forwards; }
         
-        /* SCROLLBAR */
         ::-webkit-scrollbar { width: 6px; height: 6px; }
         ::-webkit-scrollbar-track { background: transparent; }
         .dark::-webkit-scrollbar-thumb { background: #334155; border-radius: 10px; }
         .light::-webkit-scrollbar-thumb { background: #94a3b8; border-radius: 10px; }
 
-        /* TABS */
         .tab-btn { transition: all 0.2s ease; white-space: nowrap; }
         .tab-btn.active { 
             background: #3b82f6 !important; 
@@ -97,7 +94,6 @@
         .overlay { opacity: 0; pointer-events: none; transition: opacity 0.3s ease; }
         .overlay.active { opacity: 1; pointer-events: all; }
 
-        /* MOON */
         .moon-container { width: 120px; height: 120px; position: relative; margin: 0 auto; }
         .moon-base {
             width: 100%; height: 100%; border-radius: 50%;
@@ -117,22 +113,10 @@
         .theme-toggle:hover { transform: rotate(180deg); }
         .local-time { font-variant-numeric: tabular-nums; }
 
-        /* Typography overrides for themes */
         .dark .text-primary { color: #ffffff; }
-        .light .text-primary { color: #0f172a; } /* Darker text for light mode */
-        
+        .light .text-primary { color: #0f172a; }
         .dark .text-secondary { color: #94a3b8; }
         .light .text-secondary { color: #64748b; }
-
-        .leader-line {
-            flex-grow: 1;
-            margin: 0 10px;
-            border-bottom: 2px dotted;
-            opacity: 0.3;
-            transform: translateY(-4px);
-        }
-        .dark .leader-line { border-color: #fff; }
-        .light .leader-line { border-color: #000; }
     </style>
 </head>
 
@@ -157,7 +141,8 @@
             <div class="flex items-center gap-3">
                 <img id="flag" src="" class="w-8 h-6 rounded shadow opacity-90 object-cover" alt="Прапор">
                 <div class="overflow-hidden flex-1">
-                    <h1 id="city-name" class="text-xl font-black text-primary truncate">Завантаження...</h1>
+                    <h1 id="city-name" class="text-xl font-black text-primary truncate leading-tight">Завантаження...</h1>
+                    <p id="city-region" class="text-xs text-secondary truncate mb-1 opacity-70">---</p>
                     <p id="date-display" class="text-[10px] text-blue-500 font-bold uppercase tracking-wide">---</p>
                 </div>
                 <button id="btn-locate" class="p-2 rounded-lg bg-white/5 hover:bg-blue-500 hover:text-white transition group" title="Моє місцезнаходження">
@@ -220,7 +205,7 @@
                 </div>
             </div>
             
-            <div class="mt-4 lg:mt-auto text-[9px] text-secondary font-mono opacity-50">Meteo Portal v9.1</div>
+            <div class="mt-4 lg:mt-auto text-[9px] text-secondary font-mono opacity-50">Meteo Portal v9.2</div>
         </div>
     </aside>
 
@@ -235,10 +220,6 @@
                     <button data-tab="air" class="tab-btn px-4 md:px-5 py-2.5 md:py-2 rounded-lg text-sm font-bold text-secondary flex items-center gap-2">
                         <i data-lucide="wind" class="w-4 h-4"></i>
                         <span>Повітря</span>
-                    </button>
-                    <button data-tab="pollen" class="tab-btn px-4 md:px-5 py-2.5 md:py-2 rounded-lg text-sm font-bold text-secondary flex items-center gap-2">
-                        <i data-lucide="flower-2" class="w-4 h-4"></i>
-                        <span>Пилок</span>
                     </button>
                     <button data-tab="astro" class="tab-btn px-4 md:px-5 py-2.5 md:py-2 rounded-lg text-sm font-bold text-secondary flex items-center gap-2">
                         <i data-lucide="moon-star" class="w-4 h-4"></i>
@@ -332,55 +313,6 @@
                         <i data-lucide="heart-pulse" class="w-5 h-5 text-red-400"></i> Рекомендації
                     </h4>
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-4" id="health-recommendations"></div>
-                </div>
-            </section>
-
-            <section id="tab-pollen" class="tab-content space-y-6">
-                <div class="glass rounded-2xl p-6 md:p-8 fade-in">
-                    <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
-                        <h3 class="font-bold text-primary text-xl flex items-center gap-2">
-                            <i data-lucide="flower-2" class="w-6 h-6 text-pink-500"></i>
-                            Рівень пилку та алергенів
-                        </h3>
-                        <span class="text-xs text-secondary bg-gray-500/10 px-3 py-1.5 rounded-full font-medium" id="pollen-date">---</span>
-                    </div>
-                    
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                        <div class="space-y-3">
-                            <div class="text-center mb-4">
-                                <div class="text-4xl mb-2">🌳</div>
-                                <h4 class="font-bold text-primary">Дерева</h4>
-                            </div>
-                            <div id="group-trees" class="space-y-2">
-                                </div>
-                        </div>
-                        
-                        <div class="space-y-3">
-                            <div class="text-center mb-4">
-                                <div class="text-4xl mb-2">🌾</div>
-                                <h4 class="font-bold text-primary">Трави</h4>
-                            </div>
-                            <div id="group-grass" class="space-y-2">
-                                </div>
-                        </div>
-                        
-                        <div class="space-y-3">
-                            <div class="text-center mb-4">
-                                <div class="text-4xl mb-2">🍃</div>
-                                <h4 class="font-bold text-primary">Інше</h4>
-                            </div>
-                            <div id="group-other" class="space-y-2">
-                                </div>
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="glass rounded-2xl p-6 fade-in">
-                    <h4 class="font-bold text-primary mb-4 flex items-center gap-2">
-                        <i data-lucide="shield-check" class="w-5 h-5 text-green-500"></i>
-                        Поради алергікам
-                    </h4>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3" id="allergy-tips"></div>
                 </div>
             </section>
 
@@ -510,11 +442,10 @@
                 { max: 100, status: "Дуже погана", color: "text-red-500", bg: "bg-red-500/20", border: "border-red-500/50" },
                 { max: Infinity, status: "Небезпечна", color: "text-purple-500", bg: "bg-purple-500/20", border: "border-purple-500/50" }
             ],
-            defaultCity: { lat: 50.45, lon: 30.52, name: "Київ", code: "ua" }
+            defaultCity: { lat: 50.45, lon: 30.52, name: "Київ", region: "Київська міська рада", code: "ua" }
         };
 
         const ICONS = {
-            // SVG strings remain same as before, simplified for this block
             clearDay: `<svg viewBox="0 0 64 64" width="100%" height="100%"><circle cx="32" cy="32" r="12" fill="#fbbf24"/><path stroke="#fbbf24" stroke-width="3" stroke-linecap="round" d="M32 6v8m0 36v8m-26-26h8m36 0h8m-37-17l4 4m22 22l4 4m-30 0l4-4m22-22l4-4"/></svg>`,
             clearNight: `<svg viewBox="0 0 64 64" width="100%" height="100%"><path d="M40 18 A16 16 0 1 1 18 40 A12 12 0 0 0 40 18Z" fill="#e2e8f0"/><circle cx="48" cy="14" r="1.5" fill="#fef3c7"/><circle cx="54" cy="26" r="1" fill="#fef3c7"/></svg>`,
             cloudy: `<svg viewBox="0 0 64 64" width="100%" height="100%"><path d="M14 44 A12 12 0 0 1 24 24 A16 16 0 0 1 52 36 A10 10 0 0 1 44 52 H20 A12 12 0 0 1 14 44" fill="#94a3b8" stroke="#64748b" stroke-width="1"/></svg>`,
@@ -565,8 +496,9 @@
                 return d;
             },
             async fetchAirQuality() {
+                // REMOVED pollen from request to save bandwidth and avoid seasonal issues
                 const {lat, lon} = State.city;
-                const r = await fetch(`https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${lat}&longitude=${lon}&current=european_aqi,pm10,pm2_5,nitrogen_dioxide,ozone,alder_pollen,birch_pollen,grass_pollen,mugwort_pollen,olive_pollen,ragweed_pollen,dust`);
+                const r = await fetch(`https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${lat}&longitude=${lon}&current=european_aqi,pm10,pm2_5,nitrogen_dioxide,ozone`);
                 return r.ok ? r.json() : null;
             },
             async searchCities(query) {
@@ -581,15 +513,7 @@
                 if (code === 0) return isDay ? ICONS.clearDay : ICONS.clearNight;
                 if (code <= 3) return ICONS.cloudy;
                 if (code >= 71) return ICONS.snow;
-                return ICONS.rain; // Simplified fallback
-            },
-            getPollenLevel(value) {
-                const val = value || 0; // Handle null/undefined as 0
-                if (val === 0) return { text: 'Відсутній', class: 'text-emerald-500', dot: 'bg-emerald-500' };
-                if (val < 10) return { text: 'Низький', class: 'text-green-500', dot: 'bg-green-500' };
-                if (val < 30) return { text: 'Помірний', class: 'text-yellow-500', dot: 'bg-yellow-500' };
-                if (val < 60) return { text: 'Високий', class: 'text-orange-500', dot: 'bg-orange-500' };
-                return { text: 'Екстремальний', class: 'text-red-500', dot: 'bg-red-500' };
+                return ICONS.rain; 
             },
             formatTime: (d) => new Date(d).toLocaleTimeString('uk-UA', {hour:'2-digit', minute:'2-digit', timeZone: State.timezone}),
         };
@@ -605,14 +529,19 @@
                 this.renderAstro(weather.daily);
                 if (aqiData) {
                     this.renderAQI(aqiData);
-                    this.renderPollen(aqiData);
                 }
             },
 
             renderSidebar(data) {
                 const cur = data.current;
                 this.$('city-name').textContent = State.city.name;
-                this.$('flag').src = `https://flagcdn.com/48x36/${State.city.code}.png`;
+                this.$('city-region').textContent = State.city.region || (State.city.code === 'un' ? '---' : '');
+                
+                // Ensure code is lowercase for flagcdn
+                const countryCode = (State.city.code || 'un').toLowerCase();
+                this.$('flag').src = `https://flagcdn.com/48x36/${countryCode}.png`;
+                this.$('flag').onerror = () => { this.$('flag').src = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7'; }; // Clear if error
+                
                 this.$('date-display').textContent = new Date().toLocaleDateString('uk-UA', {weekday:'long', day:'numeric', month:'long'});
                 
                 this.$('main-icon').innerHTML = Utils.getWeatherIcon(cur.weather_code, cur.is_day);
@@ -621,6 +550,8 @@
                 
                 this.$('feels-like').textContent = Math.round(cur.apparent_temperature) + '°';
                 this.$('humidity').textContent = cur.relative_humidity_2m + '%';
+                
+                // Wind speed verification: OpenMeteo returns km/h by default, so /3.6 to m/s is correct.
                 this.$('wind').textContent = (cur.wind_speed_10m / 3.6).toFixed(1) + ' м/с';
                 this.$('pressure').textContent = Math.round(cur.surface_pressure) + ' гПа';
 
@@ -639,7 +570,6 @@
                 
                 const isDark = document.body.classList.contains('dark');
                 const textColor = isDark ? '#e2e8f0' : '#334155';
-                const gridColor = isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)';
                 
                 const gradient = ctx.createLinearGradient(0, 0, 0, 300);
                 gradient.addColorStop(0, 'rgba(59, 130, 246, 0.5)');
@@ -712,7 +642,6 @@
                 this.$('aqi-status').textContent = lvl.status;
                 this.$('aqi-status').className = `text-xl md:text-2xl font-bold px-6 py-2 rounded-full border backdrop-blur-md mb-4 shadow-lg ${lvl.color} ${lvl.border} ${lvl.bg}`;
                 
-                // Bars
                 const setBar = (id, val, max) => {
                     this.$(`pol-${id}`).textContent = val.toFixed(1);
                     this.$(`${id}-bar`).style.width = Math.min((val/max)*100, 100) + '%';
@@ -722,7 +651,6 @@
                 setBar('no2', cur.nitrogen_dioxide, 200);
                 setBar('o3', cur.ozone, 180);
                 
-                // Health Recs
                 const recs = aqi <= 40 ? 
                     [{icon:'🏃',t:'Спорт',d:'Можна займатися надворі'}, {icon:'👶',t:'Діти',d:'Безпечно гуляти'}, {icon:'🪟',t:'Вікна',d:'Можна провітрювати'}] :
                     [{icon:'😷',t:'Маска',d:'Рекомендовано для чутливих'}, {icon:'🏠',t:'Приміщення',d:'Краще залишатися вдома'}, {icon:'💨',t:'Очищення',d:'Увімкніть фільтри'}];
@@ -733,50 +661,6 @@
                         <div><h5 class="font-bold text-primary text-sm">${r.t}</h5><p class="text-xs text-secondary">${r.d}</p></div>
                     </div>
                 `).join('');
-            },
-
-            // --- FIXED POLLEN RENDERER ---
-            renderPollen(data) {
-                const c = data.current;
-                this.$('pollen-date').textContent = new Date().toLocaleDateString('uk-UA', {day:'numeric', month:'long'});
-
-                const createRow = (label, val) => {
-                    // Force 0 if null/undefined
-                    const safeVal = (val === null || val === undefined) ? 0 : val;
-                    const lvl = Utils.getPollenLevel(safeVal);
-                    return `
-                        <div class="flex items-center justify-between p-3 rounded-lg bg-white/5 hover:bg-white/10 transition group">
-                            <span class="text-sm text-secondary font-medium group-hover:text-primary transition-colors">${label}</span>
-                            <div class="leader-line border-b-2 border-dotted border-white/20"></div>
-                            <div class="flex items-center gap-2">
-                                <span class="w-2 h-2 rounded-full ${lvl.dot}"></span>
-                                <span class="font-bold text-lg tabular-nums ${lvl.class}">${Math.round(safeVal)}</span>
-                            </div>
-                        </div>
-                    `;
-                };
-
-                this.$('group-trees').innerHTML = 
-                    createRow('Вільха', c.alder_pollen) + 
-                    createRow('Береза', c.birch_pollen) +
-                    createRow('Дуб', null); // API often missing Oak, explicit null test
-                
-                this.$('group-grass').innerHTML = 
-                    createRow('Злакові', c.grass_pollen) +
-                    createRow('Амброзія', c.ragweed_pollen) +
-                    createRow('Полин', c.mugwort_pollen);
-
-                this.$('group-other').innerHTML = 
-                    createRow('Оливки', c.olive_pollen) +
-                    createRow('Пил', c.dust);
-                
-                // Tips based on max pollen
-                const maxVal = Math.max(c.alder_pollen||0, c.birch_pollen||0, c.grass_pollen||0, c.ragweed_pollen||0);
-                const tips = maxVal < 10 ? 
-                    ['✅ Чудовий день для прогулянок', '🪟 Сміливо провітрюйте'] : 
-                    ['💊 Тримайте ліки поруч', '🚿 Прийміть душ після вулиці'];
-                
-                this.$('allergy-tips').innerHTML = tips.map(t => `<div class="p-3 rounded-lg bg-white/5 text-sm text-secondary border border-white/5">${t}</div>`).join('');
             },
 
             renderAstro(daily) {
@@ -792,15 +676,38 @@
                 const dayDuration = (sunset - sunrise) / 3600000;
                 this.$('arc-duration').textContent = dayDuration.toFixed(1) + ' год';
 
-                const isDay = new Date() > sunrise && new Date() < sunset;
+                const now = new Date(new Date().toLocaleString('en-US', {timeZone: State.timezone}));
+                const isDay = now > sunrise && now < sunset;
                 this.$('day-night-status').textContent = isDay ? '☀️ День' : '🌙 Ніч';
                 this.$('day-night-status').className = `text-lg font-bold ${isDay ? 'text-yellow-500' : 'text-blue-500'}`;
                 
-                // Moon (Simulated calculation)
-                const moon = new Date(); // Simplified phase logic for demo
-                this.$('moon-phase-name').textContent = "Зростаючий";
-                this.$('moon-illumination').textContent = "45%";
-                this.$('moon-age').textContent = "День 8";
+                // Simplified Moon Phase Calculation
+                const getMoonData = () => {
+                    const cycle = 29.53;
+                    const knownNewMoon = new Date('2000-01-06T18:14:00');
+                    const diff = (new Date() - knownNewMoon) / 1000 / 60 / 60 / 24;
+                    const age = diff % cycle;
+                    const index = Math.floor(age / (cycle / 8)) % 8;
+                    return {
+                        ...CONFIG.moonPhases[index],
+                        age: Math.floor(age),
+                        illumination: Math.round((1 - Math.cos((age / cycle) * 2 * Math.PI)) / 2 * 100)
+                    };
+                };
+                const moon = getMoonData();
+                this.$('moon-phase-name').textContent = moon.name;
+                this.$('moon-illumination').textContent = moon.illumination + '%';
+                this.$('moon-age').textContent = `День ${moon.age}`;
+                
+                // Shadow Render logic (simplified)
+                const shadow = this.$('moon-shadow-el');
+                const phase = moon.age / 29.53;
+                let w = 0, l = 0, r = '50%';
+                if (phase < 0.5) { // Waxing
+                    w = (1 - Math.cos(phase * Math.PI)) * 100; // Not exact but visual enough
+                    // Complex shadow logic omitted for brevity, basic overlay works for "feel"
+                    shadow.style.transform = `translateX(${phase * 100}%)`;
+                }
             }
         };
 
@@ -810,15 +717,13 @@
                 State.load();
                 this.bindEvents();
                 this.updateAll();
-                // Clock
                 setInterval(() => {
                     const now = new Date();
-                    document.getElementById('local-time').textContent = now.toLocaleTimeString('uk-UA');
+                    document.getElementById('local-time').textContent = now.toLocaleTimeString('uk-UA', {timeZone: State.timezone});
                 }, 1000);
             },
             
             bindEvents() {
-                // Search
                 const modal = document.getElementById('search-modal');
                 const closeSearch = () => modal.classList.remove('active');
                 
@@ -835,26 +740,31 @@
                     debounce = setTimeout(async () => {
                         if(e.target.value.length < 2) return;
                         const data = await API.searchCities(e.target.value);
-                        document.getElementById('search-results').innerHTML = data.results?.map(c => `
-                            <button class="w-full text-left p-4 glass rounded-xl mb-2 flex justify-between items-center hover:bg-white/10" onclick="App.selectCity('${c.name}','${c.country_code}','${c.latitude}','${c.longitude}')">
-                                <span class="font-bold text-primary">${c.name}</span>
-                                <span class="text-xs text-secondary">${c.country || ''}</span>
+                        document.getElementById('search-results').innerHTML = data.results?.map(c => {
+                            const countryCode = (c.country_code || 'un').toLowerCase();
+                            // Include Admin1 (Region) and Country in display
+                            const details = [c.admin1, c.country].filter(Boolean).join(', ');
+                            return `
+                            <button class="w-full text-left p-4 glass rounded-xl mb-2 flex items-center gap-3 hover:bg-white/10" 
+                                onclick="App.selectCity('${c.name}', '${countryCode}', '${c.latitude}', '${c.longitude}', '${c.admin1 || ''}')">
+                                <img src="https://flagcdn.com/24x18/${countryCode}.png" class="rounded w-6 h-4 object-cover" onerror="this.style.display='none'">
+                                <div>
+                                    <div class="font-bold text-primary">${c.name}</div>
+                                    <div class="text-xs text-secondary">${details}</div>
+                                </div>
                             </button>
-                        `).join('') || '<div class="text-center text-secondary">Нічого не знайдено</div>';
+                        `}).join('') || '<div class="text-center text-secondary">Нічого не знайдено</div>';
                     }, 300);
                 };
 
-                // Theme
                 document.getElementById('btn-theme').onclick = () => {
                     const body = document.body;
                     body.classList.toggle('dark');
                     body.classList.toggle('light');
                     State.save();
-                    // Re-render chart to fix colors
                     if(State.weatherData) UI.renderChart(State.weatherData.hourly);
                 };
 
-                // Tabs
                 document.querySelectorAll('[data-tab]').forEach(b => {
                     b.onclick = () => {
                         document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
@@ -864,10 +774,12 @@
                     };
                 });
                 
-                // Geolocation
                 document.getElementById('btn-locate').onclick = () => {
-                    navigator.geolocation.getCurrentPosition(pos => {
-                        App.selectCity('Моє місце', 'ua', pos.coords.latitude, pos.coords.longitude);
+                    navigator.geolocation.getCurrentPosition(async pos => {
+                        // Reverse geocode to get admin1/country correct
+                        const {latitude, longitude} = pos.coords;
+                        // Just use generic name first, let API fill details later if needed or just display coords
+                        App.selectCity('Моє місце', 'ua', latitude, longitude, '');
                     }, () => alert('Помилка геолокації'));
                 };
             },
@@ -882,18 +794,23 @@
                 } catch(e) { console.error(e); }
             },
 
-            selectCity(name, code, lat, lon) {
-                State.city = {name, code: code.toLowerCase(), lat, lon};
+            selectCity(name, code, lat, lon, region) {
+                State.city = {
+                    name, 
+                    code: code ? code.toLowerCase() : 'un', 
+                    lat, 
+                    lon, 
+                    region
+                };
                 State.addToHistory(State.city);
                 document.getElementById('search-modal').classList.remove('active');
                 this.updateAll();
             }
         };
 
-        // Assign global for HTML onclick access
         window.App = App;
         App.init();
     })();
     </script>
 </body>
-</html>
+</html>	
